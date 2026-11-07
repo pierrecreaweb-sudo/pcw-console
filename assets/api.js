@@ -59,6 +59,8 @@
       getSite: async (slug) => unwrap(await sb.rpc("public_get_site", { p_slug: slug })),
       getSlots: async (slug, serviceId, from, to) =>
         unwrap(await sb.rpc("public_get_slots", { p_slug: slug, p_service_id: serviceId, p_from: from, p_to: to })) || [],
+      getSlotLevels: async (slug, serviceId, from, to) =>
+        unwrap(await sb.rpc("public_get_slot_levels", { p_slug: slug, p_service_id: serviceId, p_from: from, p_to: to })) || [],
       getExtras: async (slug) => unwrap(await sb.rpc("public_get_extras", { p_slug: slug })) || { stages: [], packs: [], online_payment: false },
       registerStage: async (slug, r) => unwrap(await sb.rpc("public_register_stage", {
         p_slug: slug, p_stage_id: r.stage_id, p_first_name: r.first_name, p_last_name: r.last_name || "",
@@ -85,6 +87,7 @@
         p_slug: slug, p_service_id: b.service_id, p_starts_at: b.starts_at, p_first_name: b.first_name,
         p_last_name: b.last_name, p_email: b.email, p_phone: b.phone, p_level: b.level || null,
         p_message: b.message || null, p_party_size: b.party_size || 1,
+        p_companions: (b.companions || []).map((c) => ({ first_name: c.first_name || "", email: c.email })),
       })),
       getBooking: async (token) => unwrap(await sb.rpc("public_get_booking", { p_token: token })),
       cancelBooking: async (token) => unwrap(await sb.rpc("public_cancel_booking", { p_token: token })),
@@ -163,6 +166,9 @@
       },
       getSiteContent: async (coachId) => unwrap(await sb.from("site_content").select("*").eq("coach_id", coachId).single()),
       saveSiteContent: async (coachId, patch) => unwrap(await sb.from("site_content").update(patch).eq("coach_id", coachId).select().single()),
+      getInvoiceSettings: async (coachId) => unwrap(await sb.from("coach_invoice_settings").select("*").eq("coach_id", coachId).maybeSingle()),
+      saveInvoiceSettings: async (coachId, row) => unwrap(await sb.from("coach_invoice_settings").upsert({ ...row, coach_id: coachId, updated_at: new Date().toISOString() }, { onConflict: "coach_id" }).select().single()),
+      issueClientInvoice: async (id) => unwrap(await sb.rpc("issue_client_invoice", { p_id: id })),
       list: async (table, coachId, order = "position") => {
         let q = sb.from(table).select("*").eq("coach_id", coachId);
         for (const o of String(order).split(",").filter(Boolean)) q = q.order(o.trim());
@@ -362,6 +368,7 @@
         save();
         return delay({ ok: true, rating });
       },
+      getSlotLevels: async () => delay([]),
       getSlots: async (slug, serviceId, from, to) => {
         const c = coachBySlug(slug);
         return delay(c ? slotsFor(c, serviceId, from, to) : []);
@@ -718,6 +725,24 @@
         Object.assign(sc, clone(patch));
         save();
         return delay(clone(sc));
+      },
+      getInvoiceSettings: async (coachId) => delay(clone((db.coach_invoice_settings || []).find((x) => x.coach_id === coachId) || null)),
+      saveInvoiceSettings: async (coachId, row) => {
+        db.coach_invoice_settings = db.coach_invoice_settings || [];
+        let r = db.coach_invoice_settings.find((x) => x.coach_id === coachId);
+        if (!r) { r = { coach_id: coachId, next_number: 1 }; db.coach_invoice_settings.push(r); }
+        Object.assign(r, clone(row)); save(); return delay(clone(r));
+      },
+      issueClientInvoice: async (id) => {
+        const inv = (db.client_invoices || []).find((x) => x.id === id);
+        const s = (db.coach_invoice_settings || []).find((x) => x.coach_id === inv.coach_id);
+        if (!inv || inv.status !== "draft") throw new ApiError("Facture déjà émise.", "P0001");
+        if (!s || !s.legal_name || !s.address || !s.siret) throw new ApiError("Renseignez d'abord vos informations de facturation (nom, adresse, SIRET)", "P0001");
+        const n = s.next_number || 1; s.next_number = n + 1;
+        const d = new Date(inv.issue_date + "T12:00:00"); const due = new Date(d.getTime() + (s.payment_terms_days || 30) * 864e5);
+        Object.assign(inv, { status: "issued", number: (s.invoice_prefix || "") + inv.issue_date.slice(0, 4) + "-" + String(n).padStart(4, "0"),
+          due_date: inv.due_date || due.toISOString().slice(0, 10), seller: clone(s) });
+        save(); return delay(clone(inv));
       },
       list: async (table, coachId, order = "position") => {
         const keys = String(order).split(",").map((k) => k.trim()).filter(Boolean);
