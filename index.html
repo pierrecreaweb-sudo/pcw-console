@@ -2,7 +2,19 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%230E2A52%27/%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2716%27 fill=%27%23E4F55B%27/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html.boot body > *:not(script):not(style) { visibility: hidden; } html.boot { background: var(--boot-bg, #0E2A52); }</style>
+<script>
+/* Pas d'écran de démo vide : la page reste masquée (fond de la couleur du coach) jusqu'à l'arrivée de ses données. */
+(function () {
+  var d = document.documentElement;
+  try { var c = localStorage.getItem("pcw-boot-bg"); if (/^#[0-9a-f]{6}$/i.test(c || "")) d.style.setProperty("--boot-bg", c); } catch (e) {}
+  d.classList.add("boot");
+  window.pcwReady = function () { d.classList.remove("boot"); };
+  setTimeout(window.pcwReady, 7000);
+})();
+</script>
 <title>Pierre Orriols - Console PCW</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Site de test de la plateforme PCW Padel Coach : réservation en ligne, agenda et back-office.">
@@ -18,7 +30,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/site.css?v=mw3a2elh">
+<link rel="stylesheet" href="assets/site.css?v=mw93ecs6">
 </head>
 <body>
 <div id="demo-ribbon" class="demo-ribbon" hidden>
@@ -45,9 +57,12 @@
 
 <main id="main">
   <section class="hero" aria-labelledby="hero-title">
-    <svg class="hero__lines" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <rect x="40" y="40" width="1120" height="520" rx="8"/><line x1="600" y1="30" x2="600" y2="570"/>
-      <line x1="210" y1="40" x2="210" y2="560"/><line x1="990" y1="40" x2="990" y2="560"/><line x1="210" y1="300" x2="990" y2="300"/>
+    <!-- Terrain de padel à l'échelle réelle (20 m x 10 m, 50 unités par mètre) : lignes de fond et de côté, lignes de service à 6,95 m du filet, ligne centrale, filet. -->
+    <svg class="hero__lines" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <rect x="100" y="50" width="1000" height="500"/>
+      <line x1="252.5" y1="50" x2="252.5" y2="550"/><line x1="947.5" y1="50" x2="947.5" y2="550"/>
+      <line x1="252.5" y1="300" x2="947.5" y2="300"/>
+      <line class="hero__net" x1="600" y1="38" x2="600" y2="562"/>
     </svg>
     <div class="wrap hero__in">
       <div class="hero__text">
@@ -178,6 +193,8 @@
     <span id="footer-name"></span>
     <a href="conditions.html" data-keep-slug>Conditions de réservation</a>
     <a href="conditions.html#mentions" data-keep-slug>Mentions légales</a>
+    <a href="conditions.html#donnees" data-keep-slug>Politique de confidentialité</a>
+    <a href="admin/" rel="nofollow">Espace coach</a>
     <a class="pcw-badge footer__made" id="pcw-badge" href="https://pcwpadel.fr/" target="_blank" rel="noopener">
       <img class="pcw-badge__mark pcw-badge__mark--on-light" src="assets/brand/pcw-glyph-on-light.svg" alt="" width="18" height="22">
       <img class="pcw-badge__mark pcw-badge__mark--on-dark" src="assets/brand/pcw-glyph-on-dark.svg" alt="" width="18" height="22">
@@ -201,11 +218,13 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
 </div>
 
-<script src="assets/config.js?v=mw3a2elh"></script>
-<script src="assets/core.js?v=mw3a2elh"></script>
-<script src="assets/demo-data.js?v=mw3a2elh"></script>
-<script src="assets/api.js?v=mw3a2elh"></script>
-<script src="assets/site.js?v=mw3a2elh"></script>
-<script src="assets/site-extras.js?v=mw3a2elh"></script>
+<script src="assets/config.js?v=mw93ecs6"></script>
+<script src="assets/i18n.js?v=mw93ecs6"></script>
+<script src="assets/core.js?v=mw93ecs6"></script>
+<script src="assets/demo-data.js?v=mw93ecs6"></script>
+<script src="assets/api.js?v=mw93ecs6"></script>
+<script src="assets/site.js?v=mw93ecs6"></script>
+<script src="assets/site-extras.js?v=mw93ecs6"></script>
+<script src="assets/motion.js?v=mw93ecs6" defer></script>
 </body>
 </html>

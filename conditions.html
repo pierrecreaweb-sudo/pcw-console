@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%230E2A52%27/%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2716%27 fill=%27%23E4F55B%27/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>Conditions de réservation</title>
@@ -10,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/site.css?v=mw3a2elh">
+<link rel="stylesheet" href="assets/site.css?v=mw93ecs6">
 <style>
   .legal { max-width: 760px; margin: 40px auto 80px; }
   .legal .panel { padding: 32px; }
@@ -40,10 +41,11 @@
     <div class="panel"><div class="skeleton"></div><div class="skeleton" style="margin-top:12px;width:60%"></div></div>
   </article>
 </main>
-<script src="assets/config.js?v=mw3a2elh"></script>
-<script src="assets/core.js?v=mw3a2elh"></script>
-<script src="assets/demo-data.js?v=mw3a2elh"></script>
-<script src="assets/api.js?v=mw3a2elh"></script>
+<script src="assets/config.js?v=mw93ecs6"></script>
+<script src="assets/i18n.js?v=mw93ecs6"></script>
+<script src="assets/core.js?v=mw93ecs6"></script>
+<script src="assets/demo-data.js?v=mw93ecs6"></script>
+<script src="assets/api.js?v=mw93ecs6"></script>
 <script>
 (function () {
   "use strict";
@@ -63,6 +65,7 @@
     const email = c.email || "";
     document.title = `Conditions de réservation · ${name}`;
     document.getElementById("brand-text").textContent = theme.logo_text || name.toUpperCase();
+    P.setFavicon(theme);
     const root = document.documentElement.style;
     if (P.hexToRgb(theme.primary)) { root.setProperty("--brand", theme.primary); root.setProperty("--on-brand", P.readableOn(theme.primary)); root.setProperty("--brand-2", P.mix(theme.primary, "#4F8EF7", 0.35)); }
     if (P.hexToRgb(theme.accent)) root.setProperty("--ball", theme.accent);
@@ -79,7 +82,7 @@
         <h2>Réservation et annulation</h2>
         <h3>Réserver une séance</h3>
         <p>Les séances se réservent en ligne parmi les créneaux proposés, au plus tard ${hours(coach.min_notice_hours)} avant leur début et jusqu'à ${coach.max_advance_days} jours à l'avance.
-        ${coach.auto_confirm ? "La réservation est confirmée immédiatement par email." : "La réservation est une demande : elle est confirmée par email après validation par le coach. Le créneau est bloqué en attendant."}</p>
+        <span>${coach.auto_confirm ? "La réservation est confirmée immédiatement par email." : "La réservation est une demande : elle est confirmée par email après validation par le coach. Le créneau est bloqué en attendant."}</span></p>
         <h3>Tarifs et paiement</h3>
         <p>Les tarifs affichés sont en euros, toutes taxes comprises. Le règlement se fait sur place, directement auprès du coach, sauf indication contraire au moment de la réservation.</p>
         <h3>Annulation par le joueur</h3>

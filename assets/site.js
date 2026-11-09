@@ -10,7 +10,7 @@
 
   const state = {
     api: null, slug: null, site: null, tz: "Europe/Paris",
-    step: 1, service: null, slots: [], byDay: new Map(), day: null, slot: null, party: 1,
+    step: 1, service: null, slots: [], byDay: new Map(), day: null, slot: null, party: 1, companions: [],
     loadingSlots: false, error: "", submitting: false, result: null,
     form: { first_name: "", last_name: "", email: "", phone: "", level: "", message: "", accept: false },
   };
@@ -40,8 +40,8 @@
   // ---------------------------------------------------------------- avis ---
   // Avis vérifiés (laissés après une séance) avec la note de coaching ; à défaut, les témoignages du coach.
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>';
-  const starRow = (n) => `<span class="stars" role="img" aria-label="${n.toLocaleString("fr-FR")} sur 5">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= Math.round(n) ? "on" : ""}">${STAR}</i>`).join("")}</span>`;
-  const fmtNote = (n) => n.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const starRow = (n) => `<span class="stars" role="img" aria-label="${n.toLocaleString((window.PCW_I18N && window.PCW_I18N.locale) || "fr-FR")} sur 5">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= Math.round(n) ? "on" : ""}">${STAR}</i>`).join("")}</span>`;
+  const fmtNote = (n) => n.toLocaleString((window.PCW_I18N && window.PCW_I18N.locale) || "fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   let reviewsShown = 6;
   function renderReviews(testimonials) {
     const rating = state.site.rating || { count: 0 }, reviews = state.site.reviews || [];
@@ -148,7 +148,7 @@
   // ------------------------------------------------------------ photos ---
   const isDemo = () => state.api && state.api.mode === "demo";
   const CAMERA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
-  const COURT = '<svg class="ph__court" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><rect x="6" y="6" width="88" height="88"/><line x1="6" y1="50" x2="94" y2="50" stroke-dasharray="2 2"/><line x1="6" y1="22" x2="94" y2="22"/><line x1="6" y1="78" x2="94" y2="78"/><line x1="50" y1="22" x2="50" y2="78"/></svg>';
+  const COURT = '<svg class="ph__court" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><rect x="6" y="6" width="88" height="88"/><line x1="6" y1="50" x2="94" y2="50" stroke-dasharray="2 2"/><line x1="6" y1="19.4" x2="94" y2="19.4"/><line x1="6" y1="80.6" x2="94" y2="80.6"/><line x1="50" y1="19.4" x2="50" y2="80.6"/></svg>';
   // Emplacement stylisé : en démo, il annonce la photo attendue ; sur un vrai site sans photo, il montre les initiales.
   function placeholder(label, { mono } = {}) {
     if (mono) return `<div class="ph" role="img" aria-label="${esc(state.site.coach.display_name)}">${COURT}<div class="ph__inner"><span class="ph__mono">${esc(initials(state.site.coach.display_name))}</span></div></div>`;
@@ -189,6 +189,7 @@
     const shown = items.slice(0, GAL_PREVIEW);
     $("#gal-count").textContent = `${items.length} photo${items.length > 1 ? "s" : ""}`;
     const cls = tileClasses(shown.length);
+    $("#gallery").dataset.n = String(shown.length);
     $("#gallery").innerHTML = shown.map((g, i) => `
       <button type="button" class="gal-item ${cls[i]}" data-photo="${i}" aria-label="Agrandir : ${esc(g.caption || "photo " + (i + 1))}">
         ${g.url ? `<img src="${esc(g.url)}" alt="${esc(g.caption || "")}" loading="lazy"${P.cropStyle(g.crop)}>` : placeholder(g.caption || "Photo de cours")}
@@ -247,6 +248,7 @@
     const { coach, content: c = {}, theme = {}, services = [], locations = [], testimonials = [] } = state.site;
     $("#brand-text").textContent = theme.logo_text || coach.display_name.toUpperCase();
     if (safeImg(theme.logo_url)) $("#brand").innerHTML = `<img src="${esc(theme.logo_url)}" alt="${esc(coach.display_name)}">`;
+    P.setFavicon(theme);
     $("#hero-eyebrow").textContent = [coach.display_name, coach.city].filter(Boolean).join(" · ");
     $("#hero-title").textContent = c.hero_title || `Coach de padel${coach.city ? " à " + coach.city : ""}`;
     $("#hero-sub").textContent = c.hero_subtitle || "";
@@ -283,7 +285,7 @@
       </article>`).join("") || `<p class="muted">Les prestations seront bientôt en ligne.</p>`;
 
     $("#locations").innerHTML = locations.map((l) => `
-      <article class="loc"><h3>${esc(l.name)}</h3>${l.address ? `<p>${esc(l.address)}</p>` : ""}
+      <article class="loc">${/^https:\/\//.test(l.logo_url || "") ? `<img class="loc__logo" src="${esc(l.logo_url)}" alt="Logo ${esc(l.name)}" loading="lazy">` : ""}<h3>${esc(l.name)}</h3>${l.address ? `<p>${esc(l.address)}</p>` : ""}
       ${safeHref(l.maps_url) ? `<a href="${esc(l.maps_url)}" target="_blank" rel="noopener">Itinéraire</a>` : ""}</article>`).join("");
     $("#lieux").hidden = !locations.length;
 
@@ -364,8 +366,17 @@
     const today = P.localYmd(new Date(), state.tz);
     const days = [];
     for (let i = 0; i <= state.site.coach.max_advance_days; i++) days.push(P.addDays(today, i));
-    const total = state.slots.length;
-    if (!total) {
+    const total = visibleSlots().length;
+    const lvlPicker = filtered() ? `<div class="field lvl2"><label for="f-level2">Votre niveau de jeu</label><select id="f-level2"><option value="">Choisir mon niveau</option>${LVLS.map((l) => `<option ${state.form.level === l ? "selected" : ""}>${l}</option>`).join("")}</select>
+      <small class="muted">Ce cours réunit des joueurs de niveaux proches (écart maximum : ${state.service.max_level_gap === 0 ? "même niveau" : state.service.max_level_gap + " niveau" + (state.service.max_level_gap > 1 ? "x" : "")}). Seuls les créneaux adaptés à votre niveau sont proposés.</small></div>` : "";
+    if (filtered() && myRank() < 0) {
+      return `<h3 class="h3">Choisissez votre créneau</h3>${lvlPicker}<div class="actions"><button type="button" class="btn btn--ghost" data-go="1">Retour</button></div>`;
+    }
+    if (!total && filtered() && state.slots.length) {
+      return `<h3 class="h3">Choisissez votre créneau</h3>${lvlPicker}<div class="empty">Aucun créneau libre pour votre niveau pour le moment.<br>Essayez un autre niveau de cours ou contactez directement le coach.</div>
+        <div class="actions"><button type="button" class="btn btn--ghost" data-go="1">Changer de prestation</button><a class="btn btn--brand" href="#contact">Contacter le coach</a></div>`;
+    }
+    if (!state.slots.length) {
       return `<h3 class="h3">Choisissez votre créneau</h3>
         <div class="empty">Aucun créneau libre pour « ${esc(state.service.name)} » dans les ${state.site.coach.max_advance_days} prochains jours.<br>
         Contactez directement le coach pour trouver un horaire.</div>
@@ -377,7 +388,7 @@
     const [y, m] = state.day.split("-").map(Number);
     const monthLabel = `${P.cap(P.MONTHS[m - 1])} ${y}`;
     const selLoc = state.slot ? locById(state.slot.location_id) : null;
-    return `<h3 class="h3">Choisissez votre créneau</h3>
+    return `<h3 class="h3">Choisissez votre créneau</h3>${lvlPicker}
       <div class="day-nav"><span>${monthLabel}</span><span class="muted" style="font-weight:500;font-size:14px">${total} créneau${total > 1 ? "x" : ""} libre${total > 1 ? "s" : ""}</span></div>
       <div class="days" id="days">${days.map((d) => {
         const n = (state.byDay.get(d) || []).length;
@@ -389,12 +400,19 @@
         const list = daySlots.filter((s) => test(P.tzParts(new Date(s.starts_at), state.tz).h));
         if (!list.length) return "";
         return `<div class="slot-group"><h4>${label}</h4><div class="slots">${list.map((s) =>
-          `<button type="button" class="slot" data-slot="${esc(s.starts_at)}" aria-pressed="${!!(state.slot && state.slot.starts_at === s.starts_at)}">${P.fmtTime(s.starts_at, state.tz)}</button>`).join("")}</div></div>`;
+          `<button type="button" class="slot" data-slot="${esc(s.starts_at)}" aria-pressed="${!!(state.slot && state.slot.starts_at === s.starts_at)}">${P.fmtTime(s.starts_at, state.tz)}${(() => { const lv = (state.levels || new Map()).get(new Date(s.starts_at).getTime()); return lv ? `<small class="slot__left">${esc(LVLS[lv.min])}${lv.min !== lv.max ? "–" + esc(LVLS[lv.max]) : ""}</small>` : ""; })()}${state.service.shared_slot && s.spots_left != null ? `<small class="slot__left">${s.spots_left} place${s.spots_left > 1 ? "s" : ""}</small>` : ""}</button>`).join("")}</div></div>`;
       }).join("")}
       ${selLoc ? `<p class="slot-loc">Lieu : <strong>${esc(selLoc.name)}</strong>${selLoc.address ? ", " + esc(selLoc.address) : ""}</p>` : ""}
       ${state.error ? `<p class="alert alert--err" role="alert">${esc(state.error)}</p>` : ""}
       <div class="actions"><button type="button" class="btn btn--ghost" data-go="1">Retour</button>
       <button type="button" class="btn btn--brand" data-go="3" ${state.slot ? "" : "disabled"}>Continuer</button></div>`;
+  }
+
+  function partyMax() {
+    const s = state.service;
+    if (!s) return 1;
+    const left = s.shared_slot && state.slot && state.slot.spots_left != null ? state.slot.spots_left : s.capacity;
+    return Math.max(1, Math.min(s.capacity, left));
   }
 
   function step3() {
@@ -407,13 +425,17 @@
         <div class="field"><label for="f-email">Email</label><input id="f-email" name="email" type="email" autocomplete="email" required value="${esc(f.email)}" placeholder="vous@exemple.fr"></div>
         <div class="field"><label for="f-phone">Téléphone</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required value="${esc(f.phone)}" placeholder="06 12 34 56 78"></div>
         <div class="field"><label for="f-level">Votre niveau</label><select id="f-level" name="level">
-          <option value="">Choisir</option>${levels.map((l) => `<option ${f.level === l ? "selected" : ""}>${l}</option>`).join("")}</select></div>
-        ${s.capacity > 1 ? `<div class="field"><label for="f-party">Nombre de joueurs</label><select id="f-party" name="party">
-          ${Array.from({ length: s.capacity }, (_, i) => `<option value="${i + 1}" ${state.party === i + 1 ? "selected" : ""}>${i + 1}</option>`).join("")}</select></div>` : ""}
+          <option value="">Choisir</option>${(filtered() ? LVLS : levels).map((l) => `<option ${f.level === l ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+        ${s.capacity > 1 ? `<div class="field"><label for="f-party">Nombre de joueurs (vous compris)</label><select id="f-party" name="party">
+          ${Array.from({ length: partyMax() }, (_, i) => `<option value="${i + 1}" ${state.party === i + 1 ? "selected" : ""}>${i + 1}</option>`).join("")}</select>
+          ${s.shared_slot ? `<small class="muted">${state.slot && state.slot.spots_left != null ? `Il reste ${state.slot.spots_left} place${state.slot.spots_left > 1 ? "s" : ""} sur ce créneau. ` : ""}Vous venez seul(e) ? D'autres joueurs peuvent rejoindre le même créneau.</small>` : ""}</div>` : ""}
+        ${s.shared_slot && state.party > 1 ? `<fieldset class="field full comp"><legend>Les personnes qui viennent avec vous <span class="muted" style="font-weight:500">(facultatif)</span></legend>
+          <p class="muted" style="margin:0 0 8px;font-size:13px">Indiquez leur email pour qu'elles reçoivent la confirmation, le rappel et les changements de cette séance.</p>
+          ${Array.from({ length: state.party - 1 }, (_, i) => `<div class="comp__row"><input name="comp_first_${i}" aria-label="Prénom du joueur ${i + 2}" placeholder="Prénom" maxlength="60" value="${esc((state.companions[i] || {}).first_name || "")}"><input name="comp_email_${i}" type="email" aria-label="Email du joueur ${i + 2}" placeholder="email@exemple.fr" maxlength="120" value="${esc((state.companions[i] || {}).email || "")}"></div>`).join("")}</fieldset>` : ""}
         <div class="field full"><label for="f-msg">Un objectif pour cette séance ? <span class="muted" style="font-weight:500">(facultatif)</span></label>
           <textarea id="f-msg" name="message" maxlength="1000" placeholder="Ex. : travailler la sortie de vitre, préparer un tournoi…">${esc(f.message)}</textarea></div>
         <label class="check full"><input type="checkbox" id="f-accept" name="accept" ${f.accept ? "checked" : ""}>
-          <span>J'accepte les <a href="${esc(withSlug("conditions.html"))}" target="_blank" rel="noopener">conditions de réservation</a> (annulation gratuite jusqu'à ${state.site.coach.cancel_hours} h avant) et l'utilisation de mes coordonnées pour organiser la séance.</span></label>
+          <span>J'accepte les <a href="${esc(withSlug("conditions.html"))}" target="_blank" rel="noopener">conditions de réservation</a> (annulation gratuite jusqu'à ${state.site.coach.cancel_hours} h avant) et l'utilisation de mes coordonnées pour organiser la séance.${s.shared_slot && state.party > 1 ? " Je confirme que les personnes dont j'indique l'email sont d'accord pour recevoir les informations de cette séance." : ""}</span></label>
         ${state.error ? `<p class="alert alert--err full" role="alert">${esc(state.error)}</p>` : ""}
         <div class="actions full"><button type="button" class="btn btn--ghost" data-go="2">Retour</button>
           <button type="submit" class="btn btn--ball" ${state.submitting ? "disabled" : ""}>${state.submitting ? "Réservation…" : state.site.coach.auto_confirm ? "Confirmer la réservation" : "Envoyer ma demande"}</button></div>
@@ -425,7 +447,7 @@
     const confirmed = r.status === "confirmed";
     const manage = `reservation.html?t=${encodeURIComponent(r.token)}&c=${encodeURIComponent(state.slug)}`;
     const gcal = P.googleCalendarUrl({
-      title: `${s.name} avec ${state.site.coach.display_name}`, start: r.starts_at, end: r.ends_at,
+      title: `${s.name} ${(window.PCW_I18N && window.PCW_I18N.tr("avec")) || "avec"} ${state.site.coach.display_name}`, start: r.starts_at, end: r.ends_at,
       location: loc ? [loc.name, loc.address].filter(Boolean).join(", ") : "", details: "Séance de padel",
     });
     return `<div class="panel booked">
@@ -453,12 +475,24 @@
     }
   }
 
-  // Retire les créneaux déjà passés (ou trop proches, selon le délai du coach) d'une liste restée affichée.
-  function pruneSlots() {
+  // ---- filtre de niveau (cours collectifs)
+  const LVLS = ["Débutant", "P25", "P50", "P100", "P250", "P500", "P1000 et plus"];
+  const filtered = () => !!(state.service && state.service.shared_slot && state.service.max_level_gap != null);
+  const myRank = () => LVLS.indexOf(state.form.level);
+  function compat(s) {
+    if (!filtered()) return true;
+    const r = myRank();
+    if (r < 0) return false;
+    const lv = (state.levels || new Map()).get(new Date(s.starts_at).getTime());
+    if (!lv) return true;
+    return Math.max(lv.max, r) - Math.min(lv.min, r) <= state.service.max_level_gap;
+  }
+  function visibleSlots() {
     const limit = Date.now() + (Number(state.site && state.site.coach && state.site.coach.min_notice_hours) || 0) * 3600000;
-    const keep = (state.slots || []).filter((s) => new Date(s.starts_at).getTime() > limit);
-    if (keep.length === state.slots.length) return false;
-    state.slots = keep;
+    return (state.slots || []).filter((s) => new Date(s.starts_at).getTime() > limit && compat(s));
+  }
+  function regroup() {
+    const keep = visibleSlots();
     state.byDay = new Map();
     for (const s of keep) {
       const d = P.localYmd(new Date(s.starts_at), state.tz);
@@ -467,7 +501,14 @@
     }
     if (state.slot && !keep.some((s) => s.starts_at === state.slot.starts_at)) state.slot = null;
     if (!state.byDay.has(state.day)) state.day = state.byDay.keys().next().value || state.day;
-    return true;
+    return keep;
+  }
+
+  // Retire les créneaux déjà passés (ou trop proches, selon le délai du coach) d'une liste restée affichée.
+  function pruneSlots() {
+    const before = state.byDay ? [...state.byDay.values()].reduce((n, l) => n + l.length, 0) : 0;
+    const keep = regroup();
+    return keep.length !== before;
   }
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && state.service && state.step >= 2 && state.step < 4 && !state.loadingSlots) loadSlots();
@@ -486,13 +527,15 @@
       state.slots = [];
       state.error = e.message;
     }
-    state.byDay = new Map();
-    for (const s of state.slots) {
-      const d = P.localYmd(new Date(s.starts_at), state.tz);
-      if (!state.byDay.has(d)) state.byDay.set(d, []);
-      state.byDay.get(d).push(s);
+    state.levels = new Map();
+    if (filtered() && state.slots.length) {
+      try {
+        const rows = await state.api.getSlotLevels(state.slug, state.service.id, today, to);
+        for (const r of rows || []) state.levels.set(new Date(r.starts_at).getTime(), { min: r.lvl_min, max: r.lvl_max });
+      } catch { /* sans niveaux : le serveur refusera si besoin */ }
     }
-    if (!state.byDay.has(state.day)) state.day = state.byDay.keys().next().value || today;
+    state.day = null;
+    regroup();
     state.loadingSlots = false;
     renderBooking();
   }
@@ -515,12 +558,21 @@
       message: (fd.get("message") || "").trim(), accept: fd.get("accept") === "on",
     });
     if (fd.get("party")) state.party = Number(fd.get("party"));
+    state.party = Math.min(state.party || 1, partyMax());
+    const comps = [];
+    for (let i = 0; i < Math.max(0, state.party - 1); i++) {
+      comps.push({ first_name: String(fd.get("comp_first_" + i) || "").trim(), email: String(fd.get("comp_email_" + i) || "").trim() });
+    }
+    state.companions = comps;
   }
   function validate() {
     const f = state.form;
     if (!f.first_name) return ["f-first", "Indiquez votre prénom."];
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) return ["f-email", "Vérifiez votre adresse email."];
     if (!/^\+?[0-9]{9,15}$/.test(f.phone.replace(/[^0-9+]/g, ""))) return ["f-phone", "Vérifiez votre numéro de téléphone (ex. 06 12 34 56 78)."];
+    for (const c of state.companions || []) if (c.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email)) return ["f-first", "Vérifiez l'email de la personne qui vous accompagne : " + c.email];
+    if (filtered() && myRank() < 0) return ["f-level", "Indiquez votre niveau précis pour ce cours collectif."];
+    if (filtered() && state.slot && !compat(state.slot)) return ["f-level", "Votre niveau ne correspond pas à ce créneau. Revenez en arrière pour choisir un autre horaire."];
     if (!f.accept) return ["f-accept", "Cochez la case pour accepter les conditions de réservation."];
     return null;
   }
@@ -534,12 +586,12 @@
     renderBooking();
     try {
       state.result = await state.api.book(state.slug, {
-        service_id: state.service.id, starts_at: state.slot.starts_at, party_size: state.party, ...state.form,
+        service_id: state.service.id, starts_at: state.slot.starts_at, party_size: state.party, companions: (state.companions || []).filter((c) => c.email), ...state.form,
       });
       state.step = 4;
     } catch (e) {
       state.error = e.message;
-      if (e.code === "SLOT_TAKEN") { state.step = 2; state.submitting = false; await loadSlots(); state.error = e.message; }
+      if (e.code === "SLOT_TAKEN" || e.code === "LEVEL_MISMATCH") { state.step = 2; state.submitting = false; await loadSlots(); state.error = e.message; }
     }
     state.submitting = false;
     renderBooking();
@@ -572,6 +624,7 @@
     });
     document.addEventListener("submit", (ev) => { if (ev.target.id === "book-form") { ev.preventDefault(); submit(); } });
     document.addEventListener("change", (ev) => {
+      if (ev.target.id === "f-level2") { state.form.level = ev.target.value; state.slot = null; state.error = ""; regroup(); renderBooking(); return; }
       if (ev.target.id === "f-party") { state.party = Number(ev.target.value); readForm(); renderBooking(); }
     });
     $("#contact-form").addEventListener("submit", (e) => { e.preventDefault(); sendContact(); });
@@ -589,11 +642,13 @@
       state.site = await state.api.getSite(state.slug);
     } catch (e) {
       $("#booking").innerHTML = `<div class="panel"><p class="alert alert--err">${esc(e.message)}</p></div>`;
+      if (window.pcwReady) window.pcwReady();
       return;
     }
     if (!state.site) {
       document.getElementById("main").innerHTML = `<section class="section"><div class="wrap"><h1 class="h2">Site introuvable</h1>
         <p class="muted">Ce site de coach n'existe pas ou n'est pas encore en ligne.</p></div></section>`;
+      if (window.pcwReady) window.pcwReady();
       return;
     }
     state.tz = state.site.coach.timezone || "Europe/Paris";
@@ -606,6 +661,11 @@
     $("#book-rules").textContent = `Réservation ouverte jusqu'à ${c.max_advance_days} jours à l'avance, au plus tard ${c.min_notice_hours} h avant la séance. Règlement sur place.`;
     const pre = new URLSearchParams(location.search).get("service");
     if (pre && services().some((s) => s.id === pre)) selectService(pre, false); else renderBooking();
+    try { const p = (state.site.theme || {}).primary; if (/^#[0-9a-f]{6}$/i.test(p || "")) localStorage.setItem("pcw-boot-bg", p); } catch { /* sans stockage */ }
+    // On attend aussi les polices et les photos du bandeau (1,8 s au plus) pour qu'elles n'apparaissent pas après coup.
+    const imgs = [...document.querySelectorAll(".hero img")].filter((i) => !i.complete).map((i) => new Promise((r) => { i.onload = i.onerror = r; }));
+    const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+    Promise.race([Promise.all([fonts, ...imgs]), new Promise((r) => setTimeout(r, 1800))]).then(() => requestAnimationFrame(() => { if (window.pcwReady) window.pcwReady(); }));
   }
 
   init();
