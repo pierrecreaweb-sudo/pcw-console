@@ -25,6 +25,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 #gl.dragging{cursor:grabbing}
 #gl.pointer{cursor:pointer}
 #labels{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#vignette{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 55%,transparent 55%,rgba(5,9,15,.55) 100%)}
 .tag{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;font-size:11.5px;font-weight:600;padding:3px 8px 3px 6px;border-radius:999px;background:rgba(10,20,33,.78);border:1px solid var(--line);display:flex;align-items:center;gap:5px;backdrop-filter:blur(4px);transition:opacity .2s}
 .tag i{width:8px;height:8px;border-radius:50%;display:inline-block}
 .tag.team{background:rgba(200,240,60,.14);border-color:rgba(200,240,60,.4);color:var(--balle)}
@@ -175,11 +176,12 @@ select option{background:var(--marine2)}
 </head>
 <body>
 <canvas id="gl" aria-label="Vue 3D du complexe Padel Coachs"></canvas>
+<div id="vignette"></div>
 <div id="labels"></div>
 
 <header id="top">
   <div class="brand">
-    <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="17" r="13" fill="#C8F03C"/><rect x="17.5" y="28" width="5" height="10" rx="2.5" fill="#C8F03C"/><path d="M15 25V9h7.2c3.7 0 6 2.2 6 5.4s-2.3 5.4-6 5.4H19.6V25z M19.6 16h2.3c1.3 0 2-.6 2-1.6s-.7-1.6-2-1.6h-2.3z" fill="#0E1B2C"/></svg>
+    <svg width="27" height="33" viewBox="27 19 50 61" aria-hidden="true"><path d="M33.3 21H52.2A21.15 21.15 0 0 1 52.2 63.3H38.7V73A4.7 4.7 0 0 1 29.3 73V25A4 4 0 0 1 33.3 21Z" fill="#F4F6F2"/><g fill="#0E1B2C"><circle cx="46.2" cy="33.4" r="1.75"/><circle cx="52.6" cy="33.4" r="1.75"/><circle cx="59.0" cy="33.4" r="1.75"/><circle cx="46.2" cy="39.8" r="1.75"/><circle cx="52.6" cy="39.8" r="1.75"/><circle cx="59.0" cy="39.8" r="1.75"/><circle cx="46.2" cy="46.2" r="1.75"/><circle cx="52.6" cy="46.2" r="1.75"/><circle cx="59.0" cy="46.2" r="1.75"/><circle cx="46.2" cy="52.6" r="1.75"/><circle cx="52.6" cy="52.6" r="1.75"/><circle cx="59.0" cy="52.6" r="1.75"/><circle cx="65.3" cy="36.2" r="1.75"/><circle cx="65.3" cy="42.6" r="1.75"/><circle cx="65.3" cy="49.0" r="1.75"/></g><circle cx="68" cy="72.7" r="5.7" fill="#C8F03C"/></svg>
     <div><b>Padel Coachs</b><span id="syncTxt">CRM commercial · console PCW</span></div>
   </div>
   <div class="search">
@@ -255,7 +257,7 @@ const CANAUX=["Instagram","SMS","Bouche-à-oreille","Annuaire padelcoachs.fr","C
 const MOTIFS=["Perdu — pas intéressé","Perdu — pas le bon moment","Perdu — sans réponse","Résilié"];
 
 // Disposition du complexe
-const HX=30,HZ=31,WH=7.5,LANE_N=-5.2,LANE_S=5.2,CROSS=[-11,11,28.6];
+const HX=30,HZ=31,WH=14,LANE_N=-5.2,LANE_S=5.2,CROSS=[-11,11,28.6];
 const COURT_X=[-19.5,-6.5,6.5,19.5];
 const SLOTS={};
 (function(){
@@ -558,7 +560,7 @@ const C={
   floor:hex("#6E737A"),wall:hex("#D9DBD6"),wallLow:hex("#13233A"),wood:hex("#B98A5A"),rubber:hex("#2B3440"),dark:hex("#202833"),
   white:hex("#FFFFFF"),led:hex("#FFF6E2"),orange:hex("#FF7A1A"),plant:hex("#3E8E4E"),pot:hex("#E8E2D6"),red:hex("#D64545"),exterior:hex("#1A1E24")
 };
-const STATIC={cast:new Geo(),nocast:new Geo(),ceil:new Geo(),glass:new Geo(),grid:new Geo(),floor:new Geo(),walls:[new Geo(),new Geo(),new Geo(),new Geo()]};
+const STATIC={cast:new Geo(),nocast:new Geo(),ceil:new Geo(),roof:new Geo(),glass:new Geo(),grid:new Geo(),floor:new Geo(),walls:[new Geo(),new Geo(),new Geo(),new Geo()]};
 const OBST=[]; // boîtes de collision pour la caméra
 const obst=(x0,y0,z0,x1,y1,z1)=>OBST.push({min:[Math.min(x0,x1),y0,Math.min(z0,z1)],max:[Math.max(x0,x1),y1,Math.max(z0,z1)]});
 const TEXNODES=[];
@@ -569,19 +571,24 @@ function buildStatic(){
   const G=STATIC;
   // sol du hall (réfléchissant) + extérieur
   G.floor.add(S.plane,[0,0,0],[0,0,0],[HX*2,1,HZ*2],C.floor,2);
-  const ex=STATIC.nocast; [[0,-HZ-45,200,90],[0,HZ+45,200,90],[-HX-45,0,90,HZ*2],[HX+45,0,90,HZ*2]].forEach(([x,z,w,d])=>ex.add(S.plane,[x,-.05,z],[0,0,0],[w,1,d],C.exterior,2));
+  G.roof.add(S.plane,[0,WH,0],[0,0,0],[HX*2+.8,1,HZ*2+.8],hex("#101A27"));
   // murs (0:N 1:S 2:O 3:E)
   const W=G.walls;
   W[0].box(0,WH/2,-HZ-.2,HX*2+.8,WH,.4,C.wall).box(0,.6,-HZ+.02,HX*2,1.2,.05,C.wallLow);
   W[1].box(0,WH/2,HZ+.2,HX*2+.8,WH,.4,C.wall).box(0,.6,HZ-.02,HX*2,1.2,.05,C.wallLow);
   W[2].box(-HX-.2,WH/2,0,.4,WH,HZ*2,C.wall).box(-HX+.02,.6,0,.05,1.2,HZ*2,C.wallLow);
+  // partie haute des murs : panneaux acoustiques sombres, comme dans une salle couverte
+  const UP=hex("#18273B"),hU=WH-7.6,yU=7.6+hU/2;
+  W[0].box(0,yU,-HZ+.03,HX*2,hU,.06,UP);W[1].box(0,yU,HZ-.03,HX*2,hU,.06,UP);W[2].box(-HX+.03,yU,0,.06,hU,HZ*2,UP);W[3].box(HX-.03,yU,0,.06,hU,HZ*2,UP);
+  for(const z of[-HZ+.05,HZ-.05])W[z<0?0:1].box(0,7.6,z,HX*2,.12,.08,C.balle,3);
+  W[2].box(-HX+.05,7.6,0,.08,.12,HZ*2,C.balle,3);W[3].box(HX-.05,7.6,0,.08,.12,HZ*2,C.balle,3);
   // fenêtres coucher de soleil (mur ouest)
   const skyT=hex("#FF8A5B"),skyM=hex("#FFC37A"),skyB=hex("#FFE7B0");
   for(let z=-26;z<=26;z+=6.5){W[2].quad4([[-HX+.03,2.6,z+2.6],[-HX+.03,2.6,z-2.6],[-HX+.03,6.6,z-2.6],[-HX+.03,6.6,z+2.6]],[skyB,skyB,skyT,skyT],3);
     W[2].box(-HX+.06,4.6,z,.08,4.2,.12,C.post).box(-HX+.06,2.55,z,.08,.1,5.4,C.post).box(-HX+.06,6.65,z,.08,.1,5.4,C.post);
     W[2].box(-HX+.06,4.6,z-2.65,.08,4.2,.1,C.post).box(-HX+.06,4.6,z+2.65,.08,4.2,.1,C.post);}
   // mur est avec entrée vitrée
-  W[3].box(HX+.2,WH/2,-(HZ+3)/2,.4,WH,HZ-3,C.wall).box(HX+.2,WH/2,(HZ+3)/2,.4,WH,HZ-3,C.wall).box(HX+.2,5.8,0,.4,3.4,6,C.wall);
+  W[3].box(HX+.2,WH/2,-(HZ+3)/2,.4,WH,HZ-3,C.wall).box(HX+.2,WH/2,(HZ+3)/2,.4,WH,HZ-3,C.wall).box(HX+.2,(4.1+WH)/2,0,.4,WH-4.1,6,C.wall);
   W[3].box(HX-.02,.6,-(HZ+3)/2,.05,1.2,HZ-3,C.wallLow).box(HX-.02,.6,(HZ+3)/2,.05,1.2,HZ-3,C.wallLow);
   G.glass.box(HX+.2,2.05,0,.06,4.1,6,C.glass,4);
   W[3].box(HX+.2,4.15,0,.25,.12,6,C.post).box(HX+.2,2.05,0,.2,4.1,.1,C.post);
@@ -635,6 +642,11 @@ function buildCourt(s){
   if(!pano){}
 }
 let BRAND_CANVAS=null;
+// Logo officiel PCW Padel Coach (raquette-P) dessiné à l'échelle k, coin haut-gauche (ox, oy)
+const GLYPH_P=new Path2D("M33.3 21H52.2A21.15 21.15 0 0 1 52.2 63.3H38.7V73A4.7 4.7 0 0 1 29.3 73V25A4 4 0 0 1 33.3 21Z"),GLYPH_H=[[46.2, 33.4], [52.6, 33.4], [59.0, 33.4], [46.2, 39.8], [52.6, 39.8], [59.0, 39.8], [46.2, 46.2], [52.6, 46.2], [59.0, 46.2], [46.2, 52.6], [52.6, 52.6], [59.0, 52.6], [65.3, 36.2], [65.3, 42.6], [65.3, 49.0]];
+function drawGlyph(x,ox,oy,k){x.save();x.translate(ox,oy);x.scale(k,k);x.translate(-27,-19);x.fillStyle="#F4F6F2";x.fill(GLYPH_P);
+  x.fillStyle="#0E1B2C";for(const[cx,cy]of GLYPH_H){x.beginPath();x.arc(cx,cy,1.75,0,Math.PI*2);x.fill()}
+  x.fillStyle="#C8F03C";x.beginPath();x.arc(68,72.7,5.7,0,Math.PI*2);x.fill();x.restore()}
 function buildVestiaire(){
   const G=STATIC;
   G.cast.add(S.plane,[-23.5,.012,0],[0,0,0],[12.5,1,7.2],C.rubber,0);
@@ -674,8 +686,7 @@ function buildLounge(){
 function buildSigns(){
   BRAND_CANVAS=cv(2048,512,(x,w,h)=>{x.clearRect(0,0,w,h);
     // logo raquette-P
-    x.save();x.translate(250,240);x.fillStyle="#C8F03C";x.beginPath();x.arc(0,-20,170,0,Math.PI*2);x.fill();x.fillRect(-32,130,64,120);
-    x.fillStyle="#0E1B2C";x.font="800 260px Archivo, 'Arial Black', sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("P",8,-6);x.restore();
+    drawGlyph(x,95,14,6.5);
     let fs=236;x.font="800 "+fs+"px Archivo, 'Arial Black', sans-serif";const tw=x.measureText("PADEL COACHS").width;if(tw>1530){fs=Math.floor(fs*1530/tw);x.font="800 "+fs+"px Archivo, 'Arial Black', sans-serif"}
     x.fillStyle="#F4F6F2";x.textBaseline="middle";x.textAlign="left";x.fillText("PADEL",470,190);
     x.fillStyle="#C8F03C";x.fillText("COACHS",470+x.measureText("PADEL ").width,190);
@@ -708,6 +719,9 @@ function looks(d){
 }
 const meshCache=new Map();
 function cm(key,fn){if(!meshCache.has(key))meshCache.set(key,fn());return meshCache.get(key)}
+const ST_SHIRTS=["#F4F6F2","#FF9F43","#7B4FD8","#E84A8A","#19A7A0","#FFD23F","#5AA9FF"];
+function studentLook(d,k){const h=[...d.id].reduce((a,c)=>a+c.charCodeAt(0),0)+k*7;
+  return{skin:SKINS[(h+2)%5],hair:HAIRS[(h+3)%5],shirt:ST_SHIRTS[h%7],shorts:k?"#2A2F38":"#0E1B2C",accent:ST_SHIRTS[(h+3)%7],hairStyle:["short","pony","band","short","pony"][h%5],h:.86+(h%5)*.035}}
 function makeChar(o){
   const sk=hex(o.skin),sh=hex(o.shirt),so=hex(o.shorts),ac=hex(o.accent),ha=hex(o.hair),wh=C.white;
   const root=new Node(),body=root.add(new Node());const s=o.h||1;body.scl=[s,s,s];
@@ -745,7 +759,8 @@ function pose(c,st,t,ph=0){
     case"dribble":{const b=Math.abs(Math.sin(t*4+ph));A[1].u.rot[0]=-.55-b*.25;A[1].f.rot[0]=-.25;c.head.rot[0]=.25;L[0].t.rot[0]=-.12;L[1].t.rot[0]=.12;c.body.pos[1]=-.02*b;break}
     case"wait":{const k=Math.sin(t*.8+ph);A[0].u.rot=[-.9,0,.55];A[0].f.rot[0]=-1;A[1].u.rot[0]=-.1;c.head.rot[0]=.3+.1*k;c.hips.rot[1]=k*.25;L[0].t.rot[0]=k*.06;break}
     case"talk":{const g=Math.sin(t*3+ph),g2=Math.sin(t*2.2+ph+1);A[0].u.rot=[-.55-.25*g,0,.25];A[0].f.rot[0]=-.9-.3*g2;A[1].u.rot=[-.45-.2*g2,0,-.25];A[1].f.rot[0]=-.8;c.head.rot[1]=g*.12;c.racket.visible=false;break}
-    case"feed":case"rally":{const T=st==="rally"?1.9:3,p=((t+ph)%T)/T;let sw;
+    case"ready":{const b=Math.sin(t*5+ph);A[1].u.rot=[-.75,0,-.35];A[1].f.rot[0]=-.5;A[0].u.rot=[-.5,0,.25];A[0].f.rot[0]=-.9;L.forEach(l=>{l.t.rot[0]=-.3;l.k.rot[0]=.55});c.body.pos[1]=-.07+b*.015;c.hips.rot[1]=b*.05;break}
+    case"lesson":case"feed":case"rally":{const T=st==="rally"?1.9:3,p=st==="lesson"?ph:((t+ph)%T)/T;let sw;
       if(p<.25)sw=lerp(0,-1,p/.25);else if(p<.38)sw=lerp(-1,1,(p-.25)/.13);else sw=lerp(1,0,(p-.38)/.62);
       A[1].u.rot=[-.55-sw*.35,0,-.45+sw*-.7];A[1].f.rot[0]=-.35;c.hips.rot[1]=-sw*.45;c.torso.rot[1]=-sw*.25;
       A[0].u.rot=[-.6,0,.2];A[0].f.rot[0]=-.8;L[0].t.rot[0]=-.25;L[1].t.rot[0]=.25;L.forEach(l=>l.k.rot[0]=.3);c.body.pos[1]=-.05;break}
@@ -795,6 +810,7 @@ function createFigure(d,fromEntry){
   const f={id:d.id,profil:d.profil,pays:d.pays,club:d.club,ph:Math.random()*10,path:null,leaving:false};
   f.char=makeChar(looks(d));f.root=f.char.root;ROOT.add(f.root);
   f.ball=f.root.add(new Node(ballMesh));f.ball.visible=false;
+  f.students=[0,1].map(k=>{const c=makeChar(studentLook(d,k));c.root.pos=[k?-1.7:1.5,0,8.7];c.root.rot=[0,Math.PI,0];c.root.visible=false;f.root.add(c.root);return c});
   f.ring=new Node(ringMesh);f.ring.transparent=true;f.ring.cast=false;f.ring.mirror=false;f.ring.scl=[.7,1,.7];f.ring.pos=[0,.04,0];f.root.add(f.ring);
   if(d.slot){f.props=makeProps(d,d.slot);ROOT.add(f.props);}
   if(fromEntry&&d.slot){f.root.pos=[ENTRY[0],0,ENTRY[1]];walk(f,route(entryA(SLOTS[d.slot].lane),SLOTS[d.slot]),SLOTS[d.slot].rot);if(f.props){f.props.scl=[.001,.001,.001];f.propsIn=true}}
@@ -889,7 +905,7 @@ function moveFigure(d,fromSlot,toSlot){const f=FIG.get(d.id);if(!f)return;
 /* =====================================================================
    8. CAMÉRA, CONTRÔLES, SÉLECTION
    ===================================================================== */
-const OVERVIEW={target:[2,0,4],yaw:.72,pitch:.78,dist:86};
+const OVERVIEW={target:[0,0,2],yaw:.55,pitch:.92,dist:140};
 const cam={target:OVERVIEW.target.slice(),yaw:OVERVIEW.yaw,pitch:OVERVIEW.pitch,dist:OVERVIEW.dist,eff:OVERVIEW.dist,fov:40*Math.PI/180,anim:null};
 let VP=null,IVP=null,camPos=[0,0,0],VW=1,VH=1;
 function flyCam(target,yaw,pitch,dist,dur=1.1){const y0=cam.yaw;let dy=((yaw-y0+Math.PI*3)%(Math.PI*2))-Math.PI;cam.anim={t:0,dur,from:{target:cam.target.slice(),yaw:y0,pitch:cam.pitch,dist:cam.dist},to:{target,yaw:y0+dy,pitch,dist}}}
@@ -901,6 +917,7 @@ function updateCam(dt){
   cam.target[0]=clamp(cam.target[0],-HX+1,HX-1);cam.target[2]=clamp(cam.target[2],-HZ+1,HZ-1);cam.target[1]=clamp(cam.target[1],0,5);
   cam.pitch=clamp(cam.pitch,.1,1.45);cam.dist=clamp(cam.dist,2.5,130);
   const dir=[Math.cos(cam.pitch)*Math.sin(cam.yaw),Math.sin(cam.pitch),Math.cos(cam.pitch)*Math.cos(cam.yaw)];
+  if(!coverOK(add3(cam.target,scl3(dir,cam.dist)))){let lo=1.2,hi=cam.dist;for(let k=0;k<16;k++){const m=(lo+hi)/2;if(coverOK(add3(cam.target,scl3(dir,m))))lo=m;else hi=m}cam.dist=lo;if(cam.anim)cam.anim.to.dist=Math.min(cam.anim.to.dist,lo)}
   let maxd=cam.dist;
   for(const b of OBST){const h=rayBox(cam.target,dir,b);if(h&&h.tmin>0&&h.tmin<maxd)maxd=h.tmin}
   if(dir[1]<0)maxd=Math.min(maxd,(cam.target[1]-.4)/-dir[1]);
@@ -908,6 +925,19 @@ function updateCam(dt){
   camPos=add3(cam.target,scl3(dir,cam.eff));camPos[1]=Math.max(.4,camPos[1]);
   const proj=M.persp(cam.fov,VW/VH,.3,500),view=M.look(camPos,cam.target,[0,1,0]);VP=M.mul(proj,view);IVP=M.inv(VP);
 }
+// Vrai si, depuis cette position, les 4 coins de l'écran tombent dans la salle (jamais sur l'extérieur).
+// Vrai si les 4 coins de l'écran tombent sur le sol ou sur un mur intérieur : on ne voit jamais l'extérieur.
+function coverOK(pos){if(pos[1]<WH-.05&&Math.abs(pos[0])<HX&&Math.abs(pos[2])<HZ)return true;
+  const proj=M.persp(cam.fov,VW/VH,.3,500),inv=M.inv(M.mul(proj,M.look(pos,cam.target,[0,1,0])));
+  for(const[nx,ny]of[[-1,-1],[1,-1],[1,1],[-1,1]]){const a=M.xf(inv,[nx,ny,-1]),b=M.xf(inv,[nx,ny,1]),d=norm3(sub(b.slice(0,3),a.slice(0,3)));
+    if(d[1]>=-1e-6)return false;
+    const tf=-pos[1]/d[1];
+    const tx=d[0]>0?(HX-pos[0])/d[0]:d[0]<0?(-HX-pos[0])/d[0]:Infinity,tz=d[2]>0?(HZ-pos[2])/d[2]:d[2]<0?(-HZ-pos[2])/d[2]:Infinity;
+    const te=Math.min(tx,tz);
+    if(tf<=te)continue; // le rayon touche le sol dans la salle
+    const y=pos[1]+d[1]*te;if(te<0||y>WH-.2||y<0)return false; // sinon il doit toucher un mur intérieur
+  }
+  return true}
 function screenRay(x,y){const nx=x/VW*2-1,ny=1-y/VH*2;const a=M.xf(IVP,[nx,ny,-1]),b=M.xf(IVP,[nx,ny,1]);return{o:a.slice(0,3),d:norm3(sub(b,a))}}
 function project(p){const x=VP[0]*p[0]+VP[4]*p[1]+VP[8]*p[2]+VP[12],y=VP[1]*p[0]+VP[5]*p[1]+VP[9]*p[2]+VP[13],w=VP[3]*p[0]+VP[7]*p[1]+VP[11]*p[2]+VP[15];if(w<.1)return null;return[(x/w*.5+.5)*VW,(1-(y/w*.5+.5))*VH]}
 function pick(x,y){const r=screenRay(x,y);
@@ -996,7 +1026,7 @@ function render(){
   sd(STATIC_M.cast);for(const it of LISTS.op)if(it.n.cast)sd(it.n.mesh,it.m);
   gl.disable(gl.POLYGON_OFFSET_FILL);}
   // passe principale
-  gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(.03,.055,.09,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(.02,.035,.06,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
   gl.useProgram(P.p);gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,shadowTex);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,whiteTex);
   // reflet
   if(!LOWQ){setCommon(true);drawMesh(STATIC_M.cast);drawMesh(STATIC_M.nocast);STATIC_M.walls.forEach((w,i)=>wallVis[i]&&drawMesh(w));
@@ -1004,7 +1034,7 @@ function render(){
   // sol
   setCommon(false);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.uniform1f(P.u.uFloor,1);drawMesh(STATIC_M.floor);gl.uniform1f(P.u.uFloor,0);gl.disable(gl.BLEND);
   // opaque
-  drawMesh(STATIC_M.cast);drawMesh(STATIC_M.nocast);STATIC_M.walls.forEach((w,i)=>wallVis[i]&&drawMesh(w));if(camPos[1]<11)drawMesh(STATIC_M.ceil);
+  drawMesh(STATIC_M.cast);drawMesh(STATIC_M.nocast);STATIC_M.walls.forEach((w,i)=>wallVis[i]&&drawMesh(w));if(camPos[1]<11)drawMesh(STATIC_M.ceil);if(camPos[1]<WH-.05)drawMesh(STATIC_M.roof);
   for(const it of LISTS.op)drawMesh(it.n.mesh,it.m,{tint:it.n.tint,emis:it.n.emis,hi:it.h,tex:it.n.tex});
   // transparents
   gl.enable(gl.BLEND);gl.depthMask(false);
@@ -1035,16 +1065,21 @@ function animate(dt){
   NPL=0;
   for(const f of[...FIG.values()]){
     const d=byId(f.id);const c=f.char;
-    if(f.path){const done=stepPath(f,dt);pose(c,"run",T,f.ph);f.ball.visible=false;f.ring.visible=!f.leaving;
+    if(f.path){const done=stepPath(f,dt);pose(c,"run",T,f.ph);f.ball.visible=false;f.students.forEach(s=>s.root.visible=false);f.ring.visible=!f.leaving;
       if(done){if(f.leaving){destroyFigure(f);continue}}}
     else{
       if(f.turnTo!=null){f.root.rot[1]=angLerp(f.root.rot[1],f.turnTo,Math.min(1,dt*8));if(Math.abs(((f.turnTo-f.root.rot[1]+Math.PI*3)%(Math.PI*2))-Math.PI)<.02)f.turnTo=null}
       const slot=SLOTS[f.slot],st=d?d.statut:0,inVest=slot&&slot.type==="vest";
       let p="idle";const P=TEAM.pierre;
-      if(inVest)p="sit";else if(P.state==="talk"&&P.target===f.id)p="talk";else p=["phone","dribble","wait","feed","rally"][st];
+      if(inVest)p="sit";else if(P.state==="talk"&&P.target===f.id)p="talk";else p=["phone","dribble","wait","lesson","lesson"][st];
       if(p==="talk"){const pp=P.root.pos,fp=f.root.pos;f.root.rot[1]=angLerp(f.root.rot[1],Math.atan2(pp[0]-fp[0],pp[2]-fp[2]),Math.min(1,dt*5))}
       else if(f.turnTo==null&&slot)f.root.rot[1]=angLerp(f.root.rot[1],slot.rot,Math.min(1,dt*3));
-      pose(c,p,T,f.ph);ballAnim(f,p);f.ring.visible=true;
+      if(p==="lesson"){const nS=st===4?2:1,Tt=2.4,tt=T+f.ph,q=(tt%Tt)/Tt,k=nS===2?Math.floor(tt/Tt)%2:0;
+        pose(c,"lesson",T,(q+.31)%1);
+        f.students.forEach((s,j)=>{s.root.visible=j<nS;if(j>=nS)return;if(j===k)pose(s,"lesson",T,(q+.81)%1);else pose(s,"ready",T,j*2)});
+        lessonBall(f,q,f.students[k].root.pos[0]);}
+      else{f.students.forEach(s=>s.root.visible=false);pose(c,p,T,f.ph);ballAnim(f,p)}
+      f.ring.visible=true;
     }
     // accessoires : sortie / entrée
     if(f.props){if(f.propsOut){const k=Math.max(.001,f.props.scl[0]-dt*3);f.props.scl=[k,k,k];if(k<=.001){ROOT.remove(f.props);f.props=null;f.propsOut=false}}
@@ -1068,6 +1103,10 @@ function animate(dt){
   R.root.hi=hover&&hover.kind==="team"&&hover.id==="claude"?.9:0;
   for(const n of HL.values()){n.alpha=.3+.15*Math.sin(T*4);const hv=hover&&hover.kind==="slot"&&HL.get(hover.id)===n;if(hv)n.alpha=.42}
 }
+// Cours : le coach envoie la balle, elle rebondit, l'élève la renvoie (arcs en repère du court)
+function arc(a,b,k,h){return[lerp(a[0],b[0],k),lerp(a[1],b[1],k)+Math.sin(k*Math.PI)*h,lerp(a[2],b[2],k)]}
+function lessonBall(f,q,sx){const b=f.ball;b.visible=true;const H=[.35,1.05,.5],B1=[sx*.75,.07,6.8],SH=[sx-.35,1.0,8.2],B2=[.15,.07,2.3];
+  b.pos=q<.38?arc(H,B1,q/.38,1.5):q<.5?arc(B1,SH,(q-.38)/.12,.45):q<.88?arc(SH,B2,(q-.5)/.38,1.6):arc(B2,H,(q-.88)/.12,.45)}
 function ballAnim(f,p){const b=f.ball;b.visible=false;const t=T+f.ph;
   if(p==="dribble"){b.visible=true;const k=Math.abs(Math.sin(t*4));b.pos=[.33,.07+k*.85,.42]}
   else if(p==="feed"){const Tt=3,q=(t%Tt)/Tt;if(q<.25){b.visible=true;b.pos=[.35,1+q/.25*.6,.45]}else if(q<.8){const k=(q-.25)/.55,side=Math.sin(Math.floor(t/Tt)*2.1)*2.5;b.visible=true;b.pos=[lerp(.35,side,k),1.6-k*1.5+Math.sin(k*Math.PI)*1.8,lerp(.45,9.5,k)]}else if(q<.95){const k=(q-.8)/.15;b.visible=true;b.pos=[Math.sin(Math.floor(t/Tt)*2.1)*2.5,Math.sin(k*Math.PI)*.8,9.5+k*2]}}
@@ -1311,7 +1350,7 @@ $("#bAdd").onclick=()=>{if(READY)addDialog()};
 async function start(){
   try{await Promise.race([Promise.all([document.fonts.load("800 100px Archivo"),document.fonts.load("600 40px 'Inter Tight'")]),new Promise(r=>setTimeout(r,1500))])}catch(e){}
   buildStatic();buildSigns();
-  STATIC_M={cast:mesh(STATIC.cast),nocast:mesh(STATIC.nocast),ceil:mesh(STATIC.ceil),glass:mesh(STATIC.glass),grid:mesh(STATIC.grid),floor:mesh(STATIC.floor),walls:STATIC.walls.map(mesh)};
+  STATIC_M={cast:mesh(STATIC.cast),nocast:mesh(STATIC.nocast),ceil:mesh(STATIC.ceil),roof:mesh(STATIC.roof),glass:mesh(STATIC.glass),grid:mesh(STATIC.grid),floor:mesh(STATIC.floor),walls:STATIC.walls.map(mesh)};
   buildTeam();resize();refresh();if(mobile()){cam.dist=95;qEl.placeholder="Coach, ville ou C-004…"}
   requestAnimationFrame(t=>{last=t;frame(t)});
   setTimeout(()=>{const l=$("#loading");l.style.opacity=0;setTimeout(()=>l.remove(),500)},250);
