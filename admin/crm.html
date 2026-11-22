@@ -81,6 +81,16 @@ button,input,select,textarea{font:inherit;color:inherit}
 #legend .row:hover{background:rgba(255,255,255,.05)}
 #legend .row b{margin-left:auto;font-variant-numeric:tabular-nums;padding-left:14px}
 .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+#minimap{position:fixed;right:12px;bottom:40px;width:200px;height:206px;border-radius:14px;border:1px solid var(--line);background:rgba(10,20,33,.82);z-index:4;display:none;backdrop-filter:blur(8px);cursor:pointer}
+body.fp #minimap{display:block}
+body.fp #legend{display:none}
+#fpPrompt{position:fixed;left:50%;bottom:58px;transform:translateX(-50%);z-index:6;background:var(--craie);color:var(--marine);padding:10px 16px;border-radius:12px;font-weight:600;display:none;cursor:pointer;box-shadow:0 12px 30px rgba(0,0,0,.4);white-space:nowrap;max-width:calc(100vw - 24px);overflow:hidden;text-overflow:ellipsis}
+#fpPrompt kbd{display:inline-block;background:var(--marine);color:var(--balle);border-radius:6px;padding:1px 7px;margin-right:8px;font:700 12px var(--body)}
+#joy{position:fixed;left:22px;bottom:28px;width:120px;height:120px;border-radius:50%;background:rgba(10,20,33,.55);border:2px solid rgba(244,246,242,.25);z-index:6;display:none;touch-action:none}
+#joy i{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(200,240,60,.85);transition:transform .08s}
+body.fp.touch #joy{display:block}
+body.fp #gl{cursor:crosshair}
+#bFP.on{background:var(--balle);color:var(--marine);border-color:var(--balle)}
 #hint{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);font-size:12px;color:var(--muted);background:rgba(10,20,33,.6);padding:6px 12px;border-radius:999px;z-index:2;white-space:nowrap}
 /* panels */
 .panel{position:fixed;top:68px;bottom:12px;width:390px;background:var(--glass);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(14px);z-index:6;display:flex;flex-direction:column;transition:transform .32s cubic-bezier(.2,.8,.2,1),opacity .25s;box-shadow:0 20px 60px rgba(0,0,0,.4)}
@@ -170,6 +180,9 @@ select option{background:var(--marine2)}
   .demo{bottom:10px;right:auto;left:8px;font-size:9.5px}
   body.popen .demo{display:none}
   .only-m{display:inline-flex}
+  #minimap{width:132px;height:136px;bottom:auto;top:160px;right:8px}
+  #fpPrompt{bottom:170px}
+  body.fp .demo{left:auto;right:8px}
   .tag{font-size:10.5px}
 }
 </style>
@@ -190,6 +203,7 @@ select option{background:var(--marine2)}
     <div id="sugg" role="listbox"></div>
   </div>
   <div class="actions">
+    <button class="btn" id="bFP" title="Se promener dans le complexe à la place de Pierre"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13" cy="4" r="2"/><path d="m9 21 2-6 3 2v4M7 12l3-4 4 1 2 3 3 1M10 8l-1 6"/></svg><span class="lbl">Vue immersive</span></button>
     <button class="btn" id="bOverview" title="Revenir à la vue d'ensemble"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10 12 3l9 7v10H3z"/></svg><span class="lbl">Vue d'ensemble</span></button>
     <button class="btn" id="bList"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="lbl">Liste</span></button>
     <button class="btn primary" id="bAdd"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">Nouveau coach</span></button>
@@ -201,6 +215,9 @@ select option{background:var(--marine2)}
 <div id="hint">Glisser : tourner · Clic droit ou Maj + glisser : se déplacer · Molette : zoom · Clic : ouvrir la fiche</div>
 <aside id="fiche" class="panel" aria-label="Fiche coach"></aside>
 <aside id="list" class="panel" aria-label="Liste des dossiers"></aside>
+<canvas id="minimap" width="200" height="206" aria-label="Plan du complexe"></canvas>
+<div id="fpPrompt" role="button" tabindex="0"></div>
+<div id="joy" aria-hidden="true"><i></i></div>
 <div id="moveBar"><span id="moveTxt"></span><button id="moveCancel">Annuler</button></div>
 <div id="tip"></div>
 <div id="modal"><div class="box" id="modalBox"></div></div>
@@ -606,7 +623,7 @@ function buildCourt(s){
   G.cast.box(cx,.028,cz,.06,.006,13.9,C.line);
   // filet
   for(const dx of[-5.05,5.05])G.cast.add(S.cyl8,[cx+dx,.47,cz],[0,0,0],[.05,.94,.05],C.post);
-  G.grid.box(cx,.48,cz,10,.8,.01,hex("#0D1520",.55));G.cast.box(cx,.9,cz,10.1,.05,.03,C.white);
+  G.grid.box(cx,.48,cz,10,.8,.01,hex("#0D1520",.55));obst(cx-5.1,0,cz-.08,cx+5.1,.95,cz+.08);G.cast.box(cx,.9,cz,10.1,.05,.03,C.white);
   // vitres & grillage
   const gh=3,top=pano?3:4;
   for(const ez of[-1,1]){const z=cz+ez*10;
@@ -905,14 +922,81 @@ function moveFigure(d,fromSlot,toSlot){const f=FIG.get(d.id);if(!f)return;
 /* =====================================================================
    8. CAMÉRA, CONTRÔLES, SÉLECTION
    ===================================================================== */
+/* --- Vue immersive : on marche dans le complexe à la place de Pierre --- */
+const FP={on:false,pos:[0,0],yaw:0,pitch:-.08,bob:0,t:1,fromEye:null,fromTgt:null,keys:new Set(),joy:[0,0],near:null,speed:0};
+const isTouch=matchMedia("(pointer:coarse)").matches;if(isTouch)document.body.classList.add("touch");
+function fpBlocked(x,z){const r=.3;for(const b of OBST){if(b.max[1]<.15||b.min[1]>1.7)continue;if(x>b.min[0]-r&&x<b.max[0]+r&&z>b.min[2]-r&&z<b.max[2]+r)return true}return Math.abs(x)>HX-.4||Math.abs(z)>HZ-.4}
+const HINT_ORBIT="Glisser : tourner · Clic droit ou Maj + glisser : se déplacer · Molette : zoom · Clic : ouvrir la fiche";
+function enterFP(){if(FP.on)return;if(moveMode)cancelMove();closeList();
+  const P=TEAM.pierre,pp=P.root.pos;FP.pos=[pp[0],pp[2]];FP.yaw=P.root.rot[1]||0;FP.pitch=-.08;
+  if(P.state==="desk"||fpBlocked(FP.pos[0],FP.pos[1])){FP.pos=[-1.5,.6];FP.yaw=.35}
+  FP.fromEye=camPos.slice();FP.fromTgt=cam.target.slice();FP.t=0;FP.on=true;P.path=null;P.state="player";P.target=null;P.root.visible=false;
+  document.body.classList.add("fp");$("#bFP").classList.add("on");$("#bFP .lbl").textContent="Quitter la vue immersive";
+  $("#hint").textContent=isTouch?"Joystick : marcher · Glisser : regarder · Toucher un coach : sa fiche":"Z Q S D ou flèches : marcher · Maj : courir · Glisser : regarder · E : parler · Échap : quitter";
+  toast("Vous êtes Pierre : promenez-vous dans le complexe.")}
+function exitFP(toOverview){if(!FP.on)return;FP.on=false;FP.keys.clear();FP.joy=[0,0];$("#joy i").style.transform="";FP.near=null;
+  const P=TEAM.pierre;P.root.pos=[FP.pos[0],0,FP.pos[1]];P.root.rot=[0,FP.yaw,0];P.root.visible=true;
+  walk(P,route(fromPoint(FP.pos),DESK),0,4.2);P.goingHome=true;P.state="walk";P.target=null;P.from=null;
+  document.body.classList.remove("fp");$("#bFP").classList.remove("on");$("#bFP .lbl").textContent="Vue immersive";$("#fpPrompt").style.display="none";
+  $("#hint").textContent=HINT_ORBIT;
+  cam.anim=null;cam.target=[FP.pos[0],1,FP.pos[1]];cam.yaw=FP.yaw+Math.PI;cam.pitch=.6;cam.dist=12;cam.eff=12;if(toOverview)overview()}
+// chemin de retour depuis n'importe quel point : sortir du court par sa porte, puis l'allée
+function fromPoint(p){for(const id of SLOT_IDS){const s=SLOTS[id];if(s.type!=="court")continue;if(Math.abs(p[0]-s.cx)<5&&Math.abs(p[1]-s.cz)<10)return{anchor:[p,...s.anchor.slice(1)],lane:s.lane}}
+  const lane=p[1]<0?LANE_N:LANE_S;return{anchor:[p,[p[0],lane]],lane}}
+function fpUpdate(dt){
+  const k=FP.keys,ae=document.activeElement,typing=!!ae&&["INPUT","TEXTAREA","SELECT"].includes(ae.tagName);
+  let mx=0,mz=0;if(!typing){if(k.has("KeyW")||k.has("ArrowUp"))mz+=1;if(k.has("KeyS")||k.has("ArrowDown"))mz-=1;if(k.has("KeyA"))mx-=1;if(k.has("KeyD"))mx+=1;
+    if(k.has("ArrowLeft"))FP.yaw+=dt*2;if(k.has("ArrowRight"))FP.yaw-=dt*2}
+  mx+=FP.joy[0];mz+=FP.joy[1];let l=Math.hypot(mx,mz);if(l>1){mx/=l;mz/=l;l=1}
+  const run=k.has("ShiftLeft")||k.has("ShiftRight")||Math.hypot(FP.joy[0],FP.joy[1])>.92,sp=run?6.2:3.1;
+  const f=[Math.sin(FP.yaw),Math.cos(FP.yaw)],r=[-Math.cos(FP.yaw),Math.sin(FP.yaw)];
+  const vx=(f[0]*mz+r[0]*mx)*sp,vz=(f[1]*mz+r[1]*mx)*sp;
+  const nx=FP.pos[0]+vx*dt,nz=FP.pos[1]+vz*dt;
+  if(!fpBlocked(nx,FP.pos[1]))FP.pos[0]=nx;if(!fpBlocked(FP.pos[0],nz))FP.pos[1]=nz;
+  FP.speed=lerp(FP.speed,l*sp,Math.min(1,dt*8));FP.bob=Math.sin(T*(run?13:9))*.035*Math.min(1,FP.speed/3);
+  TEAM.pierre.root.pos=[FP.pos[0],0,FP.pos[1]];TEAM.pierre.root.rot=[0,FP.yaw,0];
+  // coach le plus proche, devant soi
+  let best=null,bd=4.5;for(const fg of FIG.values()){if(fg.leaving||fg.path)continue;const dx=fg.root.pos[0]-FP.pos[0],dz=fg.root.pos[2]-FP.pos[1],d=Math.hypot(dx,dz)||1e-6;
+    if(d<bd&&(dx*f[0]+dz*f[1])/d>.2){bd=d;best=fg}}
+  const pr=$("#fpPrompt");if(best!==FP.near){FP.near=best;const d=best&&byId(best.id);if(d){pr.innerHTML=(isTouch?"":"<kbd>E</kbd>")+"Parler à "+esc(fullName(d))+" · "+STATUTS[d.statut].nom;pr.style.display="block"}else pr.style.display="none"}
+}
+$("#fpPrompt").onclick=()=>{if(FP.near)select(FP.near.id,false)};
+addEventListener("keydown",e=>{if(!FP.on)return;const ae=document.activeElement;if(ae&&["INPUT","TEXTAREA","SELECT"].includes(ae.tagName))return;
+  if(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","ShiftLeft","ShiftRight"].includes(e.code)){FP.keys.add(e.code);e.preventDefault()}
+  if(e.code==="KeyE"&&FP.near)select(FP.near.id,false)});
+addEventListener("keyup",e=>FP.keys.delete(e.code));addEventListener("blur",()=>FP.keys.clear());
+(function(){const j=$("#joy"),knob=j.querySelector("i");let id=null;
+  const set=(e)=>{const r=j.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;let dx=(e.clientX-cx)/(r.width/2),dy=(e.clientY-cy)/(r.height/2);const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}
+    FP.joy=[dx,-dy];knob.style.transform=`translate(${dx*34}px,${dy*34}px)`};
+  j.addEventListener("pointerdown",e=>{id=e.pointerId;j.setPointerCapture(id);set(e);e.stopPropagation()});
+  j.addEventListener("pointermove",e=>{if(e.pointerId===id)set(e)});
+  const end=e=>{if(e.pointerId!==id)return;id=null;FP.joy=[0,0];knob.style.transform=""};j.addEventListener("pointerup",end);j.addEventListener("pointercancel",end)})();
+// mini-plan (le nord en haut) ; un clic dessus vous y emmène
+const mm=$("#minimap"),mx2=mm.getContext("2d");
+function mmScale(){const W=mm.width,H=mm.height;return Math.min((W-16)/(HX*2),(H-16)/(HZ*2))}
+function drawMinimap(){const W=mm.width,H=mm.height,sc=mmScale(),X=x=>W/2+x*sc,Y=z=>H/2+z*sc,c=mx2;
+  c.clearRect(0,0,W,H);c.fillStyle="#2a3442";c.fillRect(X(-HX),Y(-HZ),HX*2*sc,HZ*2*sc);
+  for(const id of SLOT_IDS){const s=SLOTS[id];if(s.type!=="court")continue;c.fillStyle="#1E55C8";c.fillRect(X(s.cx-5),Y(s.cz-10),10*sc,20*sc);c.strokeStyle=s.pano?"#C8F03C":"rgba(244,246,242,.45)";c.lineWidth=1;c.strokeRect(X(s.cx-5)+.5,Y(s.cz-10)+.5,10*sc-1,20*sc-1);
+    c.fillStyle="rgba(244,246,242,.85)";c.font="700 10px Archivo, Arial";c.textAlign="center";c.fillText(String(s.num),X(s.cx),Y(s.cz-s.side*6)+4)}
+  c.fillStyle="#3a4656";c.fillRect(X(-29.5),Y(-3.6),12.5*sc,7.2*sc);c.fillStyle="#C8F03C";c.fillRect(X(-3.5),Y(-1.6),7*sc,Math.max(2,.9*sc));c.fillStyle="#5a4636";c.fillRect(X(17),Y(-3.5),11*sc,7*sc);
+  for(const f of FIG.values()){if(f.leaving)continue;const d=byId(f.id);if(!d)continue;c.fillStyle=STATUTS[d.statut].col;c.beginPath();c.arc(X(f.root.pos[0]),Y(f.root.pos[2]),selected===f.id?4.5:3.2,0,7);c.fill();if(selected===f.id){c.strokeStyle="#fff";c.stroke()}}
+  const R=TEAM.claude.pos;c.fillStyle="#F4F6F2";c.beginPath();c.arc(X(R[0]),Y(R[2]),2.5,0,7);c.fill();
+  c.save();c.translate(X(FP.pos[0]),Y(FP.pos[1]));c.rotate(-FP.yaw);c.fillStyle="rgba(200,240,60,.22)";c.beginPath();c.moveTo(0,0);c.arc(0,0,22,Math.PI/2-.55,Math.PI/2+.55);c.fill();
+  c.fillStyle="#C8F03C";c.beginPath();c.moveTo(0,7);c.lineTo(4.5,-4);c.lineTo(-4.5,-4);c.closePath();c.fill();c.restore()}
+mm.addEventListener("pointerdown",e=>{const r=mm.getBoundingClientRect(),W=mm.width,H=mm.height,sc=mmScale();const x=((e.clientX-r.left)*W/r.width-W/2)/sc,z=((e.clientY-r.top)*H/r.height-H/2)/sc;
+  if(!fpBlocked(x,z))FP.pos=[x,z];else toast("Endroit inaccessible (vitre, mur ou mobilier).",true)});
 const OVERVIEW={target:[0,0,2],yaw:.55,pitch:.92,dist:140};
 const cam={target:OVERVIEW.target.slice(),yaw:OVERVIEW.yaw,pitch:OVERVIEW.pitch,dist:OVERVIEW.dist,eff:OVERVIEW.dist,fov:40*Math.PI/180,anim:null};
 let VP=null,IVP=null,camPos=[0,0,0],VW=1,VH=1;
 function flyCam(target,yaw,pitch,dist,dur=1.1){const y0=cam.yaw;let dy=((yaw-y0+Math.PI*3)%(Math.PI*2))-Math.PI;cam.anim={t:0,dur,from:{target:cam.target.slice(),yaw:y0,pitch:cam.pitch,dist:cam.dist},to:{target,yaw:y0+dy,pitch,dist}}}
-function overview(){flyCam(OVERVIEW.target.slice(),OVERVIEW.yaw,OVERVIEW.pitch,mobile()?95:OVERVIEW.dist,1.2)}
+function overview(){if(FP.on){exitFP(false)}flyCam(OVERVIEW.target.slice(),OVERVIEW.yaw,OVERVIEW.pitch,mobile()?95:OVERVIEW.dist,1.2)}
 function focusFig(f){const p=f.root.pos;let yaw=.55;const s=SLOTS[f.slot];if(s&&s.type==="court")yaw=s.side>0?.35:Math.PI-.35;const dist=mobile()?13:10.5;
   let t=[p[0],1,p[2]];if(!mobile()){const k=dist*.16;t=[p[0]+Math.cos(yaw)*k,1,p[2]-Math.sin(yaw)*k]}else{t=[p[0],1-dist*.34,p[2]]}flyCam(t,yaw,.58,dist)}
 function updateCam(dt){
+  if(FP.on){fpUpdate(dt);const cp=Math.cos(FP.pitch),dir=[Math.sin(FP.yaw)*cp,Math.sin(FP.pitch),Math.cos(FP.yaw)*cp];
+    let eye=[FP.pos[0],1.62+FP.bob,FP.pos[1]],tgt=add3(eye,dir);
+    if(FP.t<1){FP.t=Math.min(1,FP.t+dt/1.1);const k=ease(FP.t);eye=[0,1,2].map(i=>lerp(FP.fromEye[i],eye[i],k));tgt=[0,1,2].map(i=>lerp(FP.fromTgt[i],tgt[i],k))}
+    camPos=eye;const proj=M.persp(64*Math.PI/180,VW/VH,.08,400),view=M.look(eye,tgt,[0,1,0]);VP=M.mul(proj,view);IVP=M.inv(VP);drawMinimap();return}
   if(cam.anim){const A=cam.anim;A.t=Math.min(1,A.t+dt/A.dur);const k=ease(A.t);cam.target=[0,1,2].map(i=>lerp(A.from.target[i],A.to.target[i],k));cam.yaw=lerp(A.from.yaw,A.to.yaw,k);cam.pitch=lerp(A.from.pitch,A.to.pitch,k);cam.dist=lerp(A.from.dist,A.to.dist,k);if(A.t>=1)cam.anim=null}
   cam.target[0]=clamp(cam.target[0],-HX+1,HX-1);cam.target[2]=clamp(cam.target[2],-HZ+1,HZ-1);cam.target[1]=clamp(cam.target[1],0,5);
   cam.pitch=clamp(cam.pitch,.1,1.45);cam.dist=clamp(cam.dist,2.5,130);
@@ -947,7 +1031,7 @@ function pick(x,y){const r=screenRay(x,y);
   const test=(kind,id,b)=>{const h=rayBox(r.o,r.d,b);if(h&&h.tmax>0){const t=Math.max(0,h.tmin);if(t<bt){bt=t;best={kind,id}}}};
   for(const f of FIG.values()){if(f.leaving)continue;const p=f.root.pos,sit=!f.path&&SLOTS[f.slot]?.type==="vest";test("fig",f.id,{min:[p[0]-.5,0,p[2]-.5],max:[p[0]+.5,sit?1.5:2.0,p[2]+.5]})}
   const pp=TEAM.pierre.root.pos,cp=TEAM.claude.pos;
-  test("team","pierre",{min:[pp[0]-.4,0,pp[2]-.4],max:[pp[0]+.4,1.95,pp[2]+.4]});
+  if(!FP.on)test("team","pierre",{min:[pp[0]-.4,0,pp[2]-.4],max:[pp[0]+.4,1.95,pp[2]+.4]});
   test("team","claude",{min:[cp[0]-.45,cp[1]-.45,cp[2]-.45],max:[cp[0]+.45,cp[1]+.55,cp[2]+.45]});
   return best}
 
@@ -959,17 +1043,17 @@ canvas.addEventListener("pointerdown",e=>{canvas.setPointerCapture(e.pointerId);
   ptr.down=true;ptr.x=ptr.sx=e.clientX;ptr.y=ptr.sy=e.clientY;ptr.btn=(e.button===2||e.shiftKey)?2:0;ptr.moved=false;cam.anim=null;});
 canvas.addEventListener("pointermove",e=>{
   if(ptr.touches.has(e.pointerId))ptr.touches.set(e.pointerId,[e.clientX,e.clientY]);
-  if(ptr.pinch&&ptr.touches.size===2){const[a,b]=[...ptr.touches.values()];const d=Math.hypot(a[0]-b[0],a[1]-b[1]),c=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+  if(ptr.pinch&&ptr.touches.size===2&&!FP.on){const[a,b]=[...ptr.touches.values()];const d=Math.hypot(a[0]-b[0],a[1]-b[1]),c=[(a[0]+b[0])/2,(a[1]+b[1])/2];
     cam.dist*=ptr.pinch.d/d;pan(c[0]-ptr.pinch.c[0],c[1]-ptr.pinch.c[1]);ptr.pinch={d,c};return}
   if(ptr.down){const dx=e.clientX-ptr.x,dy=e.clientY-ptr.y;ptr.x=e.clientX;ptr.y=e.clientY;
     if(Math.hypot(e.clientX-ptr.sx,e.clientY-ptr.sy)>5){ptr.moved=true;canvas.classList.add("dragging")}
-    if(ptr.moved){if(ptr.btn===2)pan(dx,dy);else{cam.yaw-=dx*.0055;cam.pitch+=dy*.0045}}return}
+    if(ptr.moved){if(FP.on){FP.yaw-=dx*.0045;FP.pitch=clamp(FP.pitch-dy*.0035,-1.1,1.1)}else if(ptr.btn===2)pan(dx,dy);else{cam.yaw-=dx*.0055;cam.pitch+=dy*.0045}}return}
   hoverAt(e.clientX,e.clientY);});
 const endPtr=e=>{ptr.touches.delete(e.pointerId);if(ptr.touches.size<2)ptr.pinch=null;canvas.classList.remove("dragging");
   if(ptr.down&&!ptr.moved&&e.type==="pointerup")clickAt(e.clientX,e.clientY);ptr.down=false;if(ptr.touches.size===0)ptr.moved=false};
 canvas.addEventListener("pointerup",endPtr);canvas.addEventListener("pointercancel",endPtr);
 canvas.addEventListener("pointerleave",()=>{if(!ptr.down)setHover(null)});
-canvas.addEventListener("wheel",e=>{e.preventDefault();cam.anim=null;cam.dist*=Math.exp(e.deltaY*.0012)},{passive:false});
+canvas.addEventListener("wheel",e=>{e.preventDefault();if(FP.on)return;cam.anim=null;cam.dist*=Math.exp(e.deltaY*.0012)},{passive:false});
 function pan(dx,dy){const k=cam.dist*.0016;const r=[Math.cos(cam.yaw),0,-Math.sin(cam.yaw)],f=[-Math.sin(cam.yaw),0,-Math.cos(cam.yaw)];
   cam.target=add3(cam.target,add3(scl3(r,-dx*k),scl3(f,dy*k)));}
 function hoverAt(x,y){const h=pick(x,y);setHover(h,x,y)}
@@ -1071,7 +1155,8 @@ function animate(dt){
       if(f.turnTo!=null){f.root.rot[1]=angLerp(f.root.rot[1],f.turnTo,Math.min(1,dt*8));if(Math.abs(((f.turnTo-f.root.rot[1]+Math.PI*3)%(Math.PI*2))-Math.PI)<.02)f.turnTo=null}
       const slot=SLOTS[f.slot],st=d?d.statut:0,inVest=slot&&slot.type==="vest";
       let p="idle";const P=TEAM.pierre;
-      if(inVest)p="sit";else if(P.state==="talk"&&P.target===f.id)p="talk";else p=["phone","dribble","wait","lesson","lesson"][st];
+      const near=FP.on&&!inVest&&st<3&&Math.hypot(f.root.pos[0]-FP.pos[0],f.root.pos[2]-FP.pos[1])<2.6;
+      if(inVest)p="sit";else if(near||(P.state==="talk"&&P.target===f.id))p="talk";else p=["phone","dribble","wait","lesson","lesson"][st];
       if(p==="talk"){const pp=P.root.pos,fp=f.root.pos;f.root.rot[1]=angLerp(f.root.rot[1],Math.atan2(pp[0]-fp[0],pp[2]-fp[2]),Math.min(1,dt*5))}
       else if(f.turnTo==null&&slot)f.root.rot[1]=angLerp(f.root.rot[1],slot.rot,Math.min(1,dt*3));
       if(p==="lesson"){const nS=st===4?2:1,Tt=2.4,tt=T+f.ph,q=(tt%Tt)/Tt,k=nS===2?Math.floor(tt/Tt)%2:0;
@@ -1095,7 +1180,7 @@ function animate(dt){
       PL.set([p[0],SLOTS[f.slot]?.type==="court"?5:2.4,p[2]],NPL*3);PLC.set([col[0]*k,col[1]*k,col[2]*k],NPL*3);NPL++}
   }
   // équipe
-  pierreThink(dt);const P=TEAM.pierre;pose(P.char,P.state==="walk"?"walk":P.state==="talk"?"talk":"desk",T,P.ph);
+  if(!FP.on)pierreThink(dt);const P=TEAM.pierre;pose(P.char,P.state==="walk"?"walk":P.state==="talk"?"talk":"desk",T,P.ph);
   P.root.hi=hover&&hover.kind==="team"&&hover.id==="pierre"?.9:0;
   claudeThink(dt);const R=TEAM.claude;R.root.pos=[R.pos[0],R.pos[1]+Math.sin(T*2.2)*.08,R.pos[2]];R.halo.rot[1]+=dt*2;
   const tgt=R.target&&FIG.get(R.target);if(tgt){const tp=tgt.root.pos;R.root.rot[1]=angLerp(R.root.rot[1],Math.atan2(tp[0]-R.pos[0],tp[2]-R.pos[2])||0,dt*3)}else R.root.rot[1]=angLerp(R.root.rot[1],.6,dt*2);
@@ -1127,10 +1212,11 @@ function updateLabels(){
   for(const f of FIG.values()){if(f.leaving)continue;const d=byId(f.id);if(!d)continue;const p=f.root.pos;const sit=!f.path&&SLOTS[f.slot]?.type==="vest";
     const sp=project([p[0],sit?1.6:2.2,p[2]]);const e=lblEl("f"+f.id,"tag");
     if(!sp){e.style.display="none";continue}e.style.display="";
+    if(FP.on&&Math.hypot(p[0]-FP.pos[0],p[2]-FP.pos[1])>24){e.style.display="none";continue}
     const txt=(far?d.prenom:fullName(d));const key=txt+d.statut+(selected===f.id);
     if(e._k!==key){e._k=key;e.innerHTML=`<i style="background:${STATUTS[d.statut].col}"></i>${esc(txt)}`;e.classList.toggle("sel",selected===f.id)}
     e.style.transform=`translate(${sp[0]}px,${sp[1]}px) translate(-50%,-100%)`;}
-  const P=TEAM.pierre.root.pos,sp=project([P[0],2.25,P[2]]);const pe=lblEl("tp","tag team");if(sp){pe.style.display="";pe.textContent="Pierre";pe.style.transform=`translate(${sp[0]}px,${sp[1]}px) translate(-50%,-100%)`}else pe.style.display="none";
+  const P=TEAM.pierre.root.pos,sp=project([P[0],2.25,P[2]]);const pe=lblEl("tp","tag team");if(sp&&!FP.on){pe.style.display="";pe.textContent="Pierre";pe.style.transform=`translate(${sp[0]}px,${sp[1]}px) translate(-50%,-100%)`}else pe.style.display="none";
   const R=TEAM.claude.pos,sr=project([R[0],R[1]+.75,R[2]]);const re=lblEl("tc","tag team");if(sr){re.style.display="";re.textContent="Claude";re.style.transform=`translate(${sr[0]}px,${sr[1]}px) translate(-50%,-100%)`}else re.style.display="none";
   const md=moveMode&&byId(moveMode);
   for(const id of SLOT_IDS){const s=SLOTS[id];const show=md||(s.type==="vest"&&!occupant(id));if(!show)continue;const e=lblEl("s"+id,"slotlab");
@@ -1156,7 +1242,7 @@ function refresh(){syncScene();renderKpis();renderLegend();if(listOpen)renderLis
 
 /* --- fiche --- */
 let ficheDirty=false;
-function select(id,fly){const d=byId(id);if(!d)return;if(moveMode)cancelMove();selected=id;ficheDirty=false;renderFiche();$("#fiche").classList.add("open");if(mobile())closeList();
+function select(id,fly){const d=byId(id);if(!d)return;if(FP.on)fly=false;if(moveMode)cancelMove();selected=id;ficheDirty=false;renderFiche();$("#fiche").classList.add("open");if(mobile())closeList();
   const f=FIG.get(id);if(fly&&f)focusFig(f);if(listOpen)renderList()}
 function closeFiche(){$("#fiche").classList.remove("open");selected=null;if(moveMode)cancelMove();if(listOpen)renderList()}
 function renderFiche(){const d=byId(selected);if(!d){closeFiche();return}const s=STATUTS[d.statut];const el=$("#fiche");
@@ -1225,7 +1311,7 @@ function tryMove(id,slot){const d=byId(id);if(!d)return;const c=canPlace(d,slot)
   if(!c.ok){toast(c.why==="occupé"?SLOTS[slot].nom+" est déjà occupé.":SLOTS[slot].nom+" est réservé aux coachs en ligne ou abonnés.",true);return}
   if(slot===d.slot){cancelMove();return}
   const from=d.slot;d.slot=slot;addHist(d,"Déplacé : "+SLOTS[from].nom+" → "+SLOTS[slot].nom);moveFigure(d,from,slot);cancelMove();toast(d.prenom+" rejoint "+SLOTS[slot].nom+".");refresh();}
-function startMove(id){const d=byId(id);if(!d||d.clos)return;const free=freeSlotsFor(d);if(!free.length){toast("Aucun emplacement libre pour ce dossier.",true);return}
+function startMove(id){if(FP.on)exitFP(false);const d=byId(id);if(!d||d.clos)return;const free=freeSlotsFor(d);if(!free.length){toast("Aucun emplacement libre pour ce dossier.",true);return}
   moveMode=id;showDest(d);$("#moveTxt").textContent="Déplacer "+d.prenom+" : cliquez sur un emplacement vert ("+free.length+" possible"+(free.length>1?"s":"")+")";$("#moveBar").style.display="flex";
   $("#fiche").classList.remove("open");if(listOpen)closeList();flyCam([1,0,2],cam.yaw,1.0,mobile()?100:80,1)}
 function cancelMove(){if(!moveMode)return;moveMode=null;clearDest();$("#moveBar").style.display="none";if(selected)$("#fiche").classList.add("open")}
@@ -1338,9 +1424,10 @@ function renderSugg(){sList=searchMatches(qEl.value);if(!sList.length){sugg.styl
 function goSearch(id){const d=byId(id);sugg.style.display="none";qEl.value="";qEl.blur();if(!d)return;select(id,!d.clos);if(d.clos)toast("Dossier clos : il n'est plus dans le complexe.");else toast("Localisé : "+fullName(d)+" · "+SLOTS[d.slot].nom)}
 qEl.addEventListener("input",()=>{sIdx=0;renderSugg()});qEl.addEventListener("focus",renderSugg);qEl.addEventListener("blur",()=>setTimeout(()=>sugg.style.display="none",120));
 qEl.addEventListener("keydown",e=>{if(e.key==="ArrowDown"){sIdx++;renderSugg();e.preventDefault()}else if(e.key==="ArrowUp"){sIdx--;renderSugg();e.preventDefault()}else if(e.key==="Enter"){if(sList[sIdx])goSearch(sList[sIdx].id);else toast("Aucun dossier trouvé.",true)}else if(e.key==="Escape"){qEl.value="";qEl.blur()}});
-addEventListener("keydown",e=>{const tag=document.activeElement?.tagName;if(e.key==="Escape"){if($("#modal").style.display==="flex")closeModal();else if(moveMode)cancelMove();else if(selected)closeFiche();else if(listOpen)closeList()}
+addEventListener("keydown",e=>{const tag=document.activeElement?.tagName;if(e.key==="Escape"){if($("#modal").style.display==="flex")closeModal();else if(moveMode)cancelMove();else if(selected)closeFiche();else if(listOpen)closeList();else if(FP.on)exitFP(false)}
   if(e.key==="/"&&!["INPUT","TEXTAREA","SELECT"].includes(tag)){e.preventDefault();qEl.focus()}});
 $("#bOverview").onclick=()=>{overview()};
+$("#bFP").onclick=()=>FP.on?exitFP(false):enterFP();
 $("#bList").onclick=()=>listOpen?closeList():openList();
 $("#bAdd").onclick=()=>{if(READY)addDialog()};
 
@@ -1357,7 +1444,7 @@ async function start(){
   boot();
 }
 start();
-window.__crm={reload:()=>reloadData(),advance(sec){for(let t=0;t<sec;t+=.05){T+=.05;animate(.05);updateCam(.05)}updateLabels()},lowq:()=>LOWQ,DB:()=>DB,FIG,SLOTS,select,tryMove,setStatut,cam,kpis,TEAM,pick,project};
+window.__crm={reload:()=>reloadData(),FP,enterFP,exitFP,advance(sec){for(let t=0;t<sec;t+=.05){T+=.05;animate(.05);updateCam(.05)}updateLabels()},lowq:()=>LOWQ,DB:()=>DB,FIG,SLOTS,select,tryMove,setStatut,cam,kpis,TEAM,pick,project};
 </script>
 </body>
 </html>
