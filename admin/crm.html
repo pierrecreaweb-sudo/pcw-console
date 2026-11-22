@@ -489,8 +489,20 @@ void main(){
  if(base.a*uAlpha<.01)discard;
  base.rgb=pow(base.rgb,vec3(2.2));
  vec3 V=normalize(uCam-vW);
- if(m==1){float n=vn(vW.xz*22.)*.5+vn(vW.xz*2.5)*.5;base.rgb*=.86+.26*n;}
- if(m==2){float n=vn(vW.xz*.9)*.55+vn(vW.xz*7.)*.45;base.rgb*=.86+.24*n;}
+ vec3 AN=abs(N);
+ if(m==1){ // gazon synthétique : fibres fines, sable, usure légère
+   float f1=vn(vW.xz*90.),f2=vn(vW.xz*23.),f3=vn(vW.xz*2.2);
+   base.rgb*=.80+.16*f1+.10*f2+.08*f3; base.rgb=mix(base.rgb,base.rgb*vec3(1.08,1.04,.92),smoothstep(.72,.95,vn(vW.xz*7.))*.35);}
+ if(m==2){ // béton poli : nuances, traces de taloche, joints sciés tous les 6 m
+   float n=vn(vW.xz*.9)*.55+vn(vW.xz*7.)*.30+vn(vW.xz*40.)*.15;base.rgb*=.84+.24*n;
+   vec2 q=vW.xz/6.;vec2 dd=abs(q-floor(q+.5))*6.;float jd=min(dd.x,dd.y);float fw=fwidth(jd);
+   base.rgb*=mix(.62,1.,smoothstep(.01,.01+fw*1.5,jd));}
+ if(m==7){ // panneaux sandwich nervurés
+   float c=AN.x>AN.z?vW.z:vW.x;float fw=fwidth(c);float amp=1.-smoothstep(.04,.15,fw);
+   base.rgb*=.95+.05*amp*smoothstep(-.3,.3,sin(c*6.2831/.32));
+   float pj=abs(fract(vW.y/1.2+.5)-.5)*1.2;base.rgb*=mix(.82,1.,smoothstep(.004,.004+fwidth(vW.y)*1.5,pj));}
+ if(m==8){ // dalles caoutchouc 50 cm
+   vec2 dd=abs(fract(vW.xz*2.+.5)-.5)/2.;float jd=min(dd.x,dd.y);base.rgb*=mix(.7,1.,smoothstep(.004,.004+fwidth(jd)*1.5,jd))*(.92+.1*vn(vW.xz*30.));}
  if(m==6){float n=vn(vec2((vW.x+vW.z)*1.5,vW.y*40.));base.rgb*=.8+.35*n;}
  vec3 col;
  if(m==3){col=base.rgb*1.35;}
@@ -504,11 +516,22 @@ void main(){
  }
  float fr=pow(1.-clamp(dot(N,V),0.,1.),3.);
  float a=base.a*uAlpha;
- if(m==4){a=clamp(a+fr*.45,0.,.9);col+=vec3(.5,.65,.8)*fr*.35;}
+ if(m==4){ // verre trempé : reflet de la salle (sol sombre, plafond lumineux) selon l'angle
+   vec3 R=reflect(-V,N);vec3 env=mix(vec3(.10,.10,.11),vec3(.75,.78,.82),smoothstep(-.15,.55,R.y));
+   env+=vec3(1.,.97,.9)*smoothstep(.985,1.,abs(sin(R.x*9.+R.z*3.)))*step(.2,R.y)*.6;
+   a=clamp(a+fr*.55,0.,.92);col+=env*(.12+fr*.9);}
+ if(m==5){ // grillage soudé : mailles de 5 cm, adoucies au loin
+   vec2 c=(AN.z>AN.x?vW.xy:vW.zy)/.05;vec2 fw=fwidth(c);vec2 d=.5-abs(fract(c)-.5);
+   float w=.1;vec2 l=1.-smoothstep(vec2(w),vec2(w)+fw*1.5,d);float cov=max(l.x,l.y);
+   float avg=1.-(1.-2.*w)*(1.-2.*w);cov=mix(cov,avg*.85,smoothstep(.18,.45,max(fw.x,fw.y)));a=cov*base.a;}
+ if(m==9){ // filet : mailles de 4,5 cm
+   vec2 c=(AN.z>AN.x?vW.xy:vW.zy)/.045;vec2 fw=fwidth(c);vec2 d=.5-abs(fract(c)-.5);
+   float w=.09;vec2 l=1.-smoothstep(vec2(w),vec2(w)+fw*1.2,d);float cov=max(l.x,l.y);
+   float avg=1.-(1.-2.*w)*(1.-2.*w);cov=mix(cov,avg,smoothstep(.18,.45,max(fw.x,fw.y)));a=cov*base.a;}
  col+=uEmis+uHi*vec3(.55,.75,.12)*(.45+fr*2.);
  if(uFloor>.5){a=1.-(.2+.38*fr);}
  float fd=length(uCam-vW);col=mix(col,uFog,clamp((fd-70.)/160.,0.,.55));
- col=1.-exp(-col*1.25);col=pow(col,vec3(1./2.2));
+ col*=1.15;col=clamp((col*(2.51*col+.03))/(col*(2.43*col+.59)+.14),0.,1.);col=pow(col,vec3(1./2.2));
  o=vec4(col,a);}`;
 const SVS=`#version 300 es
 layout(location=0) in vec3 aPos;uniform mat4 uModel,uLVP;void main(){gl_Position=uLVP*uModel*vec4(aPos,1.);}`;
@@ -548,7 +571,7 @@ function shapeSphere(seg){const p=[],n=[],u=[],i=[],r=Math.round(seg*.6);for(let
   for(let y=0;y<r;y++)for(let x=0;x<seg;x++){const a=y*(seg+1)+x,b=a+seg+1;i.push(a,b,a+1,b,b+1,a+1)}return{p,n,u,i}}
 function shapePlane(){return{p:[-.5,0,-.5,.5,0,-.5,.5,0,.5,-.5,0,.5],n:[0,1,0,0,1,0,0,1,0,0,1,0],u:[0,1,1,1,1,0,0,0],i:[0,2,1,0,3,2]}}
 function shapeQuad(){return{p:[-.5,-.5,0,.5,-.5,0,.5,.5,0,-.5,.5,0],n:[0,0,1,0,0,1,0,0,1,0,0,1],u:[0,0,1,0,1,1,0,1],i:[0,1,2,0,2,3]}}
-const S={cube:shapeCube(),cyl16:shapeCyl(16),cyl8:shapeCyl(8),cyl24:shapeCyl(24),cone:shapeCyl(16,0),sph:shapeSphere(16),sph8:shapeSphere(9),plane:shapePlane(),quad:shapeQuad(),ring:shapeCyl(32,1,false)};
+const S={cube:shapeCube(),cyl16:shapeCyl(16),cyl8:shapeCyl(8),cyl24:shapeCyl(24),cone:shapeCyl(16,0),sph:shapeSphere(16),sph8:shapeSphere(9),plane:shapePlane(),quad:shapeQuad(),ring:shapeCyl(32,1,false),cylT:shapeCyl(16,.8),cylV:shapeCyl(24,1.14),sph12:shapeSphere(12)};
 class Geo{constructor(){this.p=[];this.n=[];this.c=[];this.u=[];this.m=[];this.i=[]}
   add(sh,pos,rot,sc,col,mat=0){const R=rot3(rot[0],rot[1],rot[2]),b=this.p.length/3;
     for(let k=0;k<sh.p.length;k+=3){const x=sh.p[k]*sc[0],y=sh.p[k+1]*sc[1],z=sh.p[k+2]*sc[2];
@@ -573,7 +596,7 @@ const ROOT=new Node();
    ===================================================================== */
 const C={
   marine:hex("#0E1B2C"),navy:hex("#0E2A52"),balle:hex("#C8F03C"),terrain:hex("#1F5BD8"),craie:hex("#F4F6F2"),
-  turf:hex("#1E55C8"),turfOut:hex("#173f96"),line:hex("#F4F6F2"),post:hex("#151D28"),glass:hex("#BFE4F2",.10),grid:hex("#1A2533",.42),
+  turf:hex("#2257C4"),turfOut:hex("#173f96"),line:hex("#F4F6F2"),post:hex("#151D28"),glass:hex("#BFE4F2",.10),grid:hex("#20262E",.95),
   floor:hex("#6E737A"),wall:hex("#D9DBD6"),wallLow:hex("#13233A"),wood:hex("#B98A5A"),rubber:hex("#2B3440"),dark:hex("#202833"),
   white:hex("#FFFFFF"),led:hex("#FFF6E2"),orange:hex("#FF7A1A"),plant:hex("#3E8E4E"),pot:hex("#E8E2D6"),red:hex("#D64545"),exterior:hex("#1A1E24")
 };
@@ -588,12 +611,26 @@ function buildStatic(){
   const G=STATIC;
   // sol du hall (réfléchissant) + extérieur
   G.floor.add(S.plane,[0,0,0],[0,0,0],[HX*2,1,HZ*2],C.floor,2);
-  G.roof.add(S.plane,[0,WH,0],[0,0,0],[HX*2+.8,1,HZ*2+.8],hex("#101A27"));
+  G.roof.add(S.plane,[0,WH,0],[0,0,0],[HX*2+.8,1,HZ*2+.8],hex("#1A222D"),7);
+  // charpente métallique, pannes et puits de lumière (visibles de l'intérieur)
+  const steelR=hex("#3A434E");
+  for(let z=-25;z<=25.1;z+=10){G.ceil.box(0,WH-.35,z,HX*2,.5,.22,steelR).box(0,WH-2.1,z,HX*2,.16,.16,steelR);
+    for(let x=-HX+2;x<HX;x+=4)G.ceil.box(x,WH-1.22,z,.08,1.8,.08,steelR).box(x+1,WH-1.22,z,.06,2.2,.06,steelR,0)}
+  for(let x=-27;x<=27.1;x+=6)G.ceil.box(x,WH-.2,0,.12,.25,HZ*2,steelR);
+  for(const z of[-20,-10,10,20])for(const x of[-16,0,16])G.roof.box(x,WH-.03,z,8,.04,2.4,hex("#DCEBFA"),3);
+  // poteaux de structure le long des murs (profilés en H)
+  for(let z=-25;z<=25.1;z+=10)for(const sx of[-1,1]){G.nocast.box(sx*(HX-.25),WH/2,z,.3,WH,.32,steelR).box(sx*(HX-.25),.15,z,.5,.3,.5,hex("#8B939B"))}
+  for(let x=-20;x<=20.1;x+=10)for(const sz of[-1,1]){G.nocast.box(x,WH/2,sz*(HZ-.25),.32,WH,.3,steelR).box(x,.15,sz*(HZ-.25),.5,.3,.5,hex("#8B939B"))}
+  // marquage au sol de l'allée centrale (lignes de sécurité jaunes)
+  for(const z of[-6.75,6.75])G.cast.box(0,.008,z,HX*2-2,.004,.1,hex("#E8C547"));
+  for(const z of[-3.95,3.95])G.cast.box(-.5,.008,z,HX*2-13,.004,.06,hex("#E8C547"));
+  // tapis d'entrée
+  G.cast.box(HX-1.6,.01,0,2.6,.02,5.6,hex("#2B2F35"),8);
   // murs (0:N 1:S 2:O 3:E)
   const W=G.walls;
-  W[0].box(0,WH/2,-HZ-.2,HX*2+.8,WH,.4,C.wall).box(0,.6,-HZ+.02,HX*2,1.2,.05,C.wallLow);
-  W[1].box(0,WH/2,HZ+.2,HX*2+.8,WH,.4,C.wall).box(0,.6,HZ-.02,HX*2,1.2,.05,C.wallLow);
-  W[2].box(-HX-.2,WH/2,0,.4,WH,HZ*2,C.wall).box(-HX+.02,.6,0,.05,1.2,HZ*2,C.wallLow);
+  W[0].box(0,WH/2,-HZ-.2,HX*2+.8,WH,.4,C.wall,7).box(0,.6,-HZ+.02,HX*2,1.2,.05,C.wallLow);
+  W[1].box(0,WH/2,HZ+.2,HX*2+.8,WH,.4,C.wall,7).box(0,.6,HZ-.02,HX*2,1.2,.05,C.wallLow);
+  W[2].box(-HX-.2,WH/2,0,.4,WH,HZ*2,C.wall,7).box(-HX+.02,.6,0,.05,1.2,HZ*2,C.wallLow);
   // partie haute des murs : panneaux acoustiques sombres, comme dans une salle couverte
   const UP=hex("#18273B"),hU=WH-7.6,yU=7.6+hU/2;
   W[0].box(0,yU,-HZ+.03,HX*2,hU,.06,UP);W[1].box(0,yU,HZ-.03,HX*2,hU,.06,UP);W[2].box(-HX+.03,yU,0,.06,hU,HZ*2,UP);W[3].box(HX-.03,yU,0,.06,hU,HZ*2,UP);
@@ -605,7 +642,7 @@ function buildStatic(){
     W[2].box(-HX+.06,4.6,z,.08,4.2,.12,C.post).box(-HX+.06,2.55,z,.08,.1,5.4,C.post).box(-HX+.06,6.65,z,.08,.1,5.4,C.post);
     W[2].box(-HX+.06,4.6,z-2.65,.08,4.2,.1,C.post).box(-HX+.06,4.6,z+2.65,.08,4.2,.1,C.post);}
   // mur est avec entrée vitrée
-  W[3].box(HX+.2,WH/2,-(HZ+3)/2,.4,WH,HZ-3,C.wall).box(HX+.2,WH/2,(HZ+3)/2,.4,WH,HZ-3,C.wall).box(HX+.2,(4.1+WH)/2,0,.4,WH-4.1,6,C.wall);
+  W[3].box(HX+.2,WH/2,-(HZ+3)/2,.4,WH,HZ-3,C.wall,7).box(HX+.2,WH/2,(HZ+3)/2,.4,WH,HZ-3,C.wall,7).box(HX+.2,(4.1+WH)/2,0,.4,WH-4.1,6,C.wall);
   W[3].box(HX-.02,.6,-(HZ+3)/2,.05,1.2,HZ-3,C.wallLow).box(HX-.02,.6,(HZ+3)/2,.05,1.2,HZ-3,C.wallLow);
   G.glass.box(HX+.2,2.05,0,.06,4.1,6,C.glass,4);
   W[3].box(HX+.2,4.15,0,.25,.12,6,C.post).box(HX+.2,2.05,0,.2,4.1,.1,C.post);
@@ -616,47 +653,63 @@ function buildStatic(){
   buildVestiaire();buildAccueil();buildLounge();
 }
 function buildCourt(s){
-  const G=STATIC,{cx,cz,pano}=s;
+  const G=STATIC,{cx,cz,pano}=s,steel=hex("#1B2027"),glassC=pano?hex("#CFEFE8",.10):hex("#C4E6EE",.09),joint=hex("#2A3038");
+  // gazon + socle béton peint autour du court
+  G.cast.add(S.plane,[cx,.012,cz],[0,0,0],[10.6,1,20.6],hex("#3B4048"),0);
   G.cast.add(S.plane,[cx,.02,cz],[0,0,0],[10,1,20],C.turf,1);
-  // lignes
-  for(const dz of[-6.95,6.95])G.cast.box(cx,.028,cz+dz,10,.006,.06,C.line);
-  G.cast.box(cx,.028,cz,.06,.006,13.9,C.line);
-  // filet
-  for(const dx of[-5.05,5.05])G.cast.add(S.cyl8,[cx+dx,.47,cz],[0,0,0],[.05,.94,.05],C.post);
-  G.grid.box(cx,.48,cz,10,.8,.01,hex("#0D1520",.55));obst(cx-5.1,0,cz-.08,cx+5.1,.95,cz+.08);G.cast.box(cx,.9,cz,10.1,.05,.03,C.white);
-  // vitres & grillage
-  const gh=3,top=pano?3:4;
+  // lignes réglementaires (5 cm) : lignes de service à 6,95 m du filet, ligne centrale prolongée de 20 cm
+  for(const dz of[-6.95,6.95])G.cast.box(cx,.026,cz+dz,10,.004,.05,C.line);
+  G.cast.box(cx,.026,cz,.05,.004,14.3,C.line);
+  // filet : poteaux ronds, maille fine, bande blanche, sangle centrale
+  for(const dx of[-5.05,5.05]){G.cast.add(S.cyl16,[cx+dx,.46,cz],[0,0,0],[.045,.92,.045],steel).add(S.cyl16,[cx+dx,.925,cz],[0,0,0],[.05,.02,.05],steel)}
+  G.grid.box(cx,.48,cz,10,.8,.006,hex("#111418",.95),9);
+  G.cast.box(cx,.89,cz,10.1,.055,.025,C.white).box(cx,.46,cz,.05,.86,.02,C.white);
+  obst(cx-5.1,0,cz-.08,cx+5.1,.95,cz+.08);
+  const top=pano?3:4;
+  // fonds : 5 vitres de 2 m (joints de 2 cm, pattes de fixation), grillage au-dessus
   for(const ez of[-1,1]){const z=cz+ez*10;
-    G.glass.box(cx,gh/2,z,10,gh,.03,pano?hex("#C9F2E8",.12):C.glass,4);
-    if(!pano)G.grid.box(cx,3.5,z,10,1,.01,C.grid);
-    const posts=pano?[-5,5]:[-5,-2.5,0,2.5,5];posts.forEach(px=>G.cast.box(cx+px,top/2,z,.09,top,.09,C.post));
-    G.cast.box(cx,top,z,10.1,.07,.07,C.post);
+    for(let k=0;k<5;k++){const x=cx-4+k*2;G.glass.box(x,1.5,z,1.98,3,.012,glassC,4);
+      for(const y of[.25,1.5,2.75])for(const dx of[-1,1])if(!(k===0&&dx<0)&&!(k===4&&dx>0))G.cast.box(x+dx*.99,y,z,.06,.08,.05,hex("#9AA3AD"))}
+    if(!pano)G.grid.box(cx,3.5,z,10,1,.008,C.grid,5);
+    const posts=pano?[-5,5]:[-5,-3,-1,1,3,5];posts.forEach(px=>{G.cast.box(cx+px,top/2,z+ez*.06,.08,top,.08,steel).box(cx+px,.01,z+ez*.06,.2,.02,.2,steel)});
+    G.cast.box(cx,top,z+ez*.06,10.1,.06,.06,steel);if(!pano)G.cast.box(cx,3,z+ez*.06,10,.04,.04,steel);
     obst(cx-5.05,0,z-.06,cx+5.05,top,z+.06);
     for(const sx of[-1,1]){const x=cx+sx*5;
-      // tronçons vitrés en bout
-      G.glass.box(x,1.5,z-ez*1,.03,3,2,pano?hex("#C9F2E8",.12):C.glass,4);
-      G.glass.box(x,pano?1.5:1,z-ez*3,.03,pano?3:2,2,pano?hex("#C9F2E8",.12):C.glass,4);
-      if(!pano){G.grid.box(x,2.5,z-ez*3,.01,1,2,C.grid);G.cast.box(x,2,z-ez*2,.08,4,.08,C.post);G.cast.box(x,1.5,z-ez*4,.08,3,.08,C.post)}
+      // tronçons vitrés en bout : 2 m à 3 m de haut, puis 2 m à 2 m de haut (en escalier)
+      G.glass.box(x,1.5,z-ez*1,.012,3,1.98,glassC,4);
+      G.glass.box(x,pano?1.5:1,z-ez*3,.012,pano?3:2,1.98,glassC,4);
+      for(const y of[.25,1.5])G.cast.box(x,y,z-ez*2,.05,.08,.06,hex("#9AA3AD"));
+      if(!pano){G.grid.box(x,2.5,z-ez*3,.008,1,2,C.grid,5);G.cast.box(x+sx*.05,2,z-ez*2,.08,4,.08,steel).box(x+sx*.05,1.5,z-ez*4,.08,3,.08,steel)}
+      else G.cast.box(x+sx*.03,1.5,z-ez*2,.03,3,.03,steel);
     }}
   for(const sx of[-1,1]){const x=cx+sx*5;
-    // partie centrale (12 m) : grillage, ou vitre pour les panoramiques ; ouverture côté est au niveau du filet
+    // partie centrale (12 m) : grillage soudé (vitre pour les panoramiques) ; porte côté est au niveau du filet
     const segs=sx>0?(s.side>0?[[cz-6,cz+.2],[cz+1.4,cz+6]]:[[cz-6,cz-1.4],[cz-.2,cz+6]]):[[cz-6,cz+6]];
     segs.forEach(([a,b])=>{const L=b-a,m=(a+b)/2;
-      if(pano)G.glass.box(x,1.5,m,.03,3,L,hex("#C9F2E8",.12),4);else G.grid.box(x,1.5,m,.01,3,L,C.grid);
+      if(pano){for(let z0=a;z0<b-.01;z0+=2){const L2=Math.min(2,b-z0);G.glass.box(x,1.5,z0+L2/2,.012,3,L2-.02,glassC,4)}}
+      else G.grid.box(x,1.5,m,.008,3,L,C.grid,5);
       obst(x-.06,0,a,x+.06,3,b);});
-    if(!pano)for(let z=cz-6;z<=cz+6;z+=3)if(!(sx>0&&Math.abs(z-s.gz)<.8))G.cast.box(x,1.5,z,.08,3,.08,C.post);
-    G.cast.box(x,pano?3:3,cz,.06,.06,12,C.post);
+    if(!pano)for(let z=cz-6;z<=cz+6.01;z+=2)if(!(sx>0&&Math.abs(z-s.gz)<.9))G.cast.box(x+sx*.05,1.5,z,.07,3,.07,steel);
+    G.cast.box(x+sx*.05,3,cz,.06,.06,12,steel);
+    if(sx>0)for(const dz of[-.62,.62])G.cast.box(x+.05,1.5,s.gz+dz,.09,3,.09,steel); // montants de porte
     obst(x-.06,0,cz-10,x+.06,3,cz-6);obst(x-.06,0,cz+6,x+.06,3,cz+10);
   }
-  // rampes LED suspendues
-  for(const dz of[-6,0,6]){G.ceil.box(cx,7.6,cz+dz,7,.1,.35,C.post);G.ceil.box(cx,7.53,cz+dz,6.8,.04,.28,C.led,3);
-    for(const dx of[-3,3])G.ceil.box(cx+dx,8.5,cz+dz,.02,1.8,.02,C.post)}
+  // projecteurs LED suspendus (armature, diffuseur, câbles)
+  for(const dz of[-6,0,6]){G.ceil.box(cx,7.62,cz+dz,7.2,.09,.42,hex("#2A3038")).box(cx,7.56,cz+dz,7,.03,.34,C.led,3);
+    for(const dx of[-3.2,3.2])G.ceil.box(cx+dx,10.8,cz+dz,.015,6.3,.015,steel)}
+  // banc de joueurs dans l'allée latérale, à l'écart de la porte
+  const bz=cz-s.side*5;G.cast.box(cx+6.2,.45,bz,.42,.05,2.2,C.wood,6).box(cx+6.38,.75,bz,.05,.5,2.2,C.wood,6);
+  for(const dz of[-.9,.9])G.cast.box(cx+6.2,.22,bz+dz,.36,.44,.05,steel);
+  obst(cx+5.95,0,bz-1.15,cx+6.45,.8,bz+1.15);
+  // poubelle + fontaine à eau au coin du court
+  G.cast.add(S.cyl16,[cx+6.9,.4,bz+1.7],[0,0,0],[.22,.8,.22],hex("#3E4650")).add(S.cyl16,[cx+6.9,.81,bz+1.7],[0,0,0],[.23,.03,.23],steel);
   // numéro peint
-  const num=cv(512,512,(x,w,h)=>{x.fillStyle="rgba(244,246,242,.88)";x.font="800 300px Archivo, 'Arial Black', sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText(String(s.num),w/2,h/2-20);
+  const num=cv(512,512,(x,w,h)=>{x.fillStyle="rgba(244,246,242,.9)";x.font="800 300px Archivo, 'Arial Black', sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText(String(s.num),w/2,h/2-20);
     x.font="700 54px 'Inter Tight', Arial, sans-serif";x.fillText(pano?"PANORAMIQUE":"COURT",w/2,h-62)});
-  const nn=texQuad(num,3.2,3.2,[cx,.035,s.label[2]-s.side*1.2],[0,s.side>0?0:Math.PI,0],{lit:true,alpha:.9,flat:true});
-  // banderole de marque sur grillage arrière côté allée
-  if(!pano){}
+  texQuad(num,3.2,3.2,[cx,.03,s.label[2]-s.side*1.2],[0,s.side>0?0:Math.PI,0],{lit:true,alpha:.85,flat:true});
+  // autocollant logo sur la vitre du fond côté allée
+  const dec=cv(512,256,(x,w,h)=>{x.clearRect(0,0,w,h);drawGlyph(x,14,30,3.2);x.fillStyle="rgba(244,246,242,.92)";x.font="800 70px Archivo, 'Arial Black', sans-serif";x.textBaseline="middle";x.fillText("PADEL",190,100);x.fillStyle="#C8F03C";x.fillText("COACHS",190,170)});
+  texQuad(dec,1.6,.8,[cx+3.3,.65,cz+s.side*9.985],[0,s.side>0?Math.PI:0,0],{alpha:.9});
 }
 let BRAND_CANVAS=null;
 // Logo officiel PCW Padel Coach (raquette-P) dessiné à l'échelle k, coin haut-gauche (ox, oy)
@@ -664,9 +717,12 @@ const GLYPH_P=new Path2D("M33.3 21H52.2A21.15 21.15 0 0 1 52.2 63.3H38.7V73A4.7 
 function drawGlyph(x,ox,oy,k){x.save();x.translate(ox,oy);x.scale(k,k);x.translate(-27,-19);x.fillStyle="#F4F6F2";x.fill(GLYPH_P);
   x.fillStyle="#0E1B2C";for(const[cx,cy]of GLYPH_H){x.beginPath();x.arc(cx,cy,1.75,0,Math.PI*2);x.fill()}
   x.fillStyle="#C8F03C";x.beginPath();x.arc(68,72.7,5.7,0,Math.PI*2);x.fill();x.restore()}
+function plant(g,x,z,k){g.add(S.cylT,[x,.32*k,z],[Math.PI,0,0],[.32*k,.64*k,.32*k],hex("#D9D2C3"));
+  const L=[hex("#3F8A4C"),hex("#2F7340"),hex("#58A05E")];
+  for(let i=0;i<9;i++){const a=i*2.4,r=(i%3)*.12*k,y=(.8+(i%4)*.18)*k;g.add(S.sph12,[x+Math.cos(a)*r,y,z+Math.sin(a)*r],[0,a,0],[.28*k,.34*k,.28*k],L[i%3])}}
 function buildVestiaire(){
   const G=STATIC;
-  G.cast.add(S.plane,[-23.5,.012,0],[0,0,0],[12.5,1,7.2],C.rubber,0);
+  G.cast.add(S.plane,[-23.5,.012,0],[0,0,0],[12.5,1,7.2],C.rubber,8);
   // casiers
   for(let k=0;k<8;k++){const z=-3.15+k*.9;G.cast.box(-28.95,1.05,z,.6,2.1,.86,k%3===0?C.balle:C.terrain);G.cast.box(-28.63,1.35,z+.25,.02,.12,.05,C.craie)}
   G.cast.box(-28.95,2.15,0,.62,.08,7.4,C.post);obst(-29.3,0,-3.6,-28.6,2.2,3.6);
@@ -681,7 +737,7 @@ function buildAccueil(){
   G.cast.box(0,.55,-1.2,7,1.1,.8,C.craie).box(0,1.13,-1.2,7.2,.06,.95,C.marine).box(0,.75,-.79,7,.08,.02,C.balle,3);
   obst(-3.6,0,-1.65,3.6,1.2,-.75);
   for(const dx of[-1.7,1.4]){G.cast.box(dx,1.45,-1.45,.9,.55,.04,C.post).box(dx,1.45,-1.425,.84,.49,.01,hex("#2A6BFF"),3).box(dx,1.2,-1.5,.08,.15,.08,C.post)}
-  for(const dx of[-4.4,4.4]){G.cast.add(S.cyl16,[dx,.35,-1.2],[0,0,0],[.35,.7,.35],C.pot).add(S.sph8,[dx,1.15,-1.2],[0,0,0],[.6,.75,.6],C.plant)}
+  for(const dx of[-4.4,4.4])plant(G.cast,dx,-1.2,1);
   // dock du robot
   G.cast.add(S.cyl24,[DOCK[0],.04,DOCK[2]],[0,0,0],[.8,.08,.8],C.marine).add(S.cyl24,[DOCK[0],.085,DOCK[2]],[0,0,0],[.62,.01,.62],C.balle,3);
   const sign=cv(1024,256,(x,w,h)=>{x.fillStyle="#C8F03C";x.fillRect(0,0,w,h);x.fillStyle="#0E1B2C";x.font="800 112px Archivo, 'Arial Black', sans-serif";x.textAlign="center";x.textBaseline="middle";x.fillText("ACCUEIL",w/2,h/2+4)});
@@ -696,7 +752,8 @@ function buildLounge(){
   // canapé + table basse
   G.cast.box(22,.25,2.4,5,.5,1,hex("#24466F")).box(22,.7,2.85,5,.55,.25,hex("#24466F")).box(19.6,.45,2.4,.25,.4,1,hex("#24466F")).box(24.4,.45,2.4,.25,.4,1,hex("#24466F"));
   G.cast.box(22,.22,1.1,2,.06,.9,C.wood,6).box(22,.1,1.1,1.8,.2,.75,C.post);
-  obst(19.4,0,1.8,24.6,1,3);
+  obst(19.4,0,1.8,24.6,1,3);plant(G.cast,18.3,2.6,1.1);plant(G.cast,27.6,2.8,1.2);
+  for(const[x,z]of[[26.4,.6],[26.4,-.9]]){G.cast.add(S.cyl24,[x,1.05,z],[0,0,0],[.35,.04,.35],C.wood,6).add(S.cyl8,[x,.52,z],[0,0,0],[.04,1.04,.04],hex("#1B2027")).add(S.cyl16,[x,.02,z],[0,0,0],[.25,.04,.25],hex("#1B2027"))}
   // réfrigérateur lumineux
   G.cast.box(26.9,1,-2.6,.9,2,.7,C.post).box(26.9,1.05,-2.24,.75,1.75,.02,hex("#BFF5FF"),3);
 }
@@ -744,21 +801,32 @@ function makeChar(o){
   const root=new Node(),body=root.add(new Node());const s=o.h||1;body.scl=[s,s,s];
   const hips=body.add(new Node());hips.pos=[0,.92,0];
   const mk=(parent,m,pos)=>{const n=parent.add(new Node(m));n.pos=pos;return n};
-  const thighM=cm("th"+o.shorts+o.skin,()=>mesh(new Geo().box(0,-.15,0,.19,.32,.21,so).box(0,-.36,0,.13,.14,.14,sk)));
-  const shinM=cm("sh"+o.skin,()=>mesh(new Geo().box(0,-.2,0,.12,.4,.13,sk).box(0,-.39,.0,.1,.07,.1,wh).box(0,-.46,.045,.15,.09,.28,wh)));
+  const shoe=hex(o.shoe||"#F2F2F2"),sole=hex("#30343A");
+  const thighM=cm("th2"+o.shorts+o.skin,()=>mesh(new Geo().add(S.cyl16,[0,-.13,0],[0,0,0],[.1,.3,.11],so).add(S.cylT,[0,-.34,0],[0,0,0],[.075,.16,.078],sk).add(S.sph8,[0,-.42,.005],[0,0,0],[.062,.062,.065],sk)));
+  const shinM=cm("sh2"+o.skin,()=>mesh(new Geo().add(S.cylT,[0,-.19,-.005],[Math.PI,0,0],[.064,.36,.066],sk).add(S.cyl16,[0,-.385,0],[0,0,0],[.048,.07,.05],wh)
+    .add(S.sph12,[0,-.435,.045],[0,0,0],[.062,.05,.14],shoe).box(0,-.468,.045,.115,.02,.27,sole)));
   const legs=[-1,1].map(sd=>{const t=mk(hips,thighM,[sd*.11,0,0]);const k=mk(t,shinM,[0,-.42,0]);return{t,k}});
-  const torso=mk(hips,cm("to"+o.shirt+o.accent+o.skin,()=>mesh(new Geo().box(0,.31,0,.44,.62,.25,sh).box(0,.45,.001,.447,.055,.255,ac).add(S.cyl8,[0,.66,0],[0,0,0],[.06,.1,.06],sk))),[0,0,0]);
-  const head=mk(torso,cm("he"+o.skin+o.hair+o.hairStyle+o.accent,()=>{const g=new Geo().add(S.sph,[0,.14,0],[0,0,0],[.15,.165,.15],sk)
-      .add(S.sph8,[-.05,.16,.135],[0,0,0],[.022,.022,.015],hex("#141414")).add(S.sph8,[.05,.16,.135],[0,0,0],[.022,.022,.015],hex("#141414"));
-    if(o.hairStyle!=="cap")g.add(S.sph,[0,.2,-.02],[0,0,0],[.158,.13,.158],ha);
-    if(o.hairStyle==="pony")g.add(S.sph8,[0,.16,-.19],[0,0,0],[.06,.11,.06],ha);
-    if(o.hairStyle==="band")g.add(S.cyl16,[0,.2,0],[0,0,0],[.162,.04,.162],ac);
-    if(o.hairStyle==="cap")g.add(S.sph,[0,.2,0],[0,0,0],[.163,.12,.163],ac).box(0,.215,.16,.24,.025,.16,ac);
+  const torso=mk(hips,cm("to2"+o.shirt+o.accent+o.skin+o.shorts,()=>mesh(new Geo().add(S.cyl24,[0,.02,0],[0,0,0],[.175,.16,.11],so)
+      .add(S.cylV,[0,.32,0],[0,0,0],[.175,.6,.11],sh).add(S.cylV,[0,.45,0],[0,0,0],[.198,.05,.124],ac)
+      .add(S.sph12,[-.205,.57,0],[0,0,0],[.08,.075,.08],sh).add(S.sph12,[.205,.57,0],[0,0,0],[.08,.075,.08],sh)
+      .add(S.sph12,[0,.6,0],[0,0,0],[.19,.06,.11],sh).add(S.cyl16,[0,.66,0],[0,0,0],[.052,.1,.052],sk))),[0,0,0]);
+  const head=mk(torso,cm("he2"+o.skin+o.hair+o.hairStyle+o.accent,()=>{const dk=hex("#1A1410"),g=new Geo().add(S.sph,[0,.145,0],[0,0,0],[.118,.142,.128],sk)
+      .add(S.sph12,[0,.075,.035],[0,0,0],[.095,.075,.095],sk)
+      .add(S.sph8,[0,.13,.128],[0,0,0],[.02,.03,.025],sk)
+      .add(S.sph8,[-.118,.14,0],[0,0,0],[.022,.034,.018],sk).add(S.sph8,[.118,.14,0],[0,0,0],[.022,.034,.018],sk)
+      .add(S.sph8,[-.042,.165,.112],[0,0,0],[.016,.012,.01],dk).add(S.sph8,[.042,.165,.112],[0,0,0],[.016,.012,.01],dk)
+      .box(-.042,.19,.115,.04,.008,.012,hex(o.hair)).box(.042,.19,.115,.04,.008,.012,hex(o.hair))
+      .box(0,.088,.12,.04,.008,.008,hex("#9C5A4A"));
+    if(o.hairStyle!=="cap")g.add(S.sph,[0,.19,-.018],[0,0,0],[.124,.112,.136],ha);
+    if(o.hairStyle==="pony")g.add(S.sph12,[0,.14,-.15],[.5,0,0],[.045,.1,.045],ha);
+    if(o.hairStyle==="band")g.add(S.cyl16,[0,.2,0],[0,0,0],[.128,.035,.138],ac);
+    if(o.hairStyle==="cap")g.add(S.sph,[0,.2,-.01],[0,0,0],[.128,.1,.138],ac).add(S.sph12,[0,.208,.13],[0,0,0],[.1,.012,.09],ac);
     return mesh(g)}),[0,.66,0]);
-  const upperM=cm("ua"+o.shirt+o.skin,()=>mesh(new Geo().box(0,-.09,0,.13,.2,.14,sh).box(0,-.2,0,.09,.12,.1,sk)));
-  const foreM=cm("fa"+o.skin,()=>mesh(new Geo().box(0,-.13,0,.085,.28,.09,sk).add(S.sph8,[0,-.3,0],[0,0,0],[.055,.06,.055],sk)));
+  const upperM=cm("ua2"+o.shirt+o.skin,()=>mesh(new Geo().add(S.cyl16,[0,-.07,0],[0,0,0],[.07,.16,.072],sh).add(S.cylT,[0,-.2,0],[0,0,0],[.05,.14,.052],sk).add(S.sph8,[0,-.27,0],[0,0,0],[.046,.046,.046],sk)));
+  const foreM=cm("fa2"+o.skin,()=>mesh(new Geo().add(S.cylT,[0,-.13,0],[0,0,0],[.045,.26,.047],sk).add(S.sph12,[0,-.295,.005],[0,0,0],[.042,.06,.03],sk)));
   const arms=[-1,1].map(sd=>{const u=mk(torso,upperM,[sd*.29,.56,0]);const f=mk(u,foreM,[0,-.27,0]);return{u,f}});
-  const racket=mk(arms[1].f,cm("rk"+o.accent,()=>mesh(new Geo().add(S.cyl8,[0,-.1,0],[0,0,0],[.02,.18,.02],hex("#111111")).add(S.cyl24,[0,-.34,0],[0,0,Math.PI/2],[.135,.035,.12],ac).add(S.cyl24,[0,-.34,0],[0,0,Math.PI/2],[.12,.04,.105],hex("#20252D")))),[0,-.3,.02]);
+  const racket=mk(arms[1].f,cm("rk2"+o.accent,()=>mesh(new Geo().add(S.cyl16,[0,-.08,0],[0,0,0],[.018,.16,.018],hex("#E9E9E9")).add(S.cyl16,[0,-.17,0],[0,0,0],[.022,.03,.022],hex("#15181C"))
+      .add(S.cyl24,[0,-.36,0],[0,0,Math.PI/2],[.15,.038,.13],ac).add(S.cyl24,[0,-.36,0],[0,0,Math.PI/2],[.138,.042,.118],hex("#22272E")))),[0,-.3,.02]);
   const phone=mk(arms[0].f,cm("ph",()=>mesh(new Geo().box(0,0,0,.08,.15,.015,hex("#111111")).box(0,0,.009,.07,.13,.002,hex("#7FB3FF"),3))),[0,-.3,.05]);
   phone.rot=[-1.2,0,0];phone.visible=false;
   return{root,body,hips,torso,head,legs,arms,racket,phone,s,o};
@@ -800,7 +868,7 @@ function makeProps(d,slot){
   if(d.profil==="independant"){g.add(S.cyl16,[1.3,.35,.5],[0,0,0],[.28,.7,.28],hex("#20252D")).add(S.cyl16,[1.3,.72,.5],[0,0,0],[.3,.04,.3],C.post);
     for(let k=0;k<14;k++){const a=k*2.4,r=(k%3)*.08;g.add(S.sph8,[1.3+Math.cos(a)*r,.74+(k%4)*.03,.5+Math.sin(a)*r],[0,0,0],[.065,.065,.065],hex("#DDF55A"))}}
   if(d.profil==="debutant"){for(let k=0;k<5;k++)g.add(S.cone,[-2.4+k*1.2,.15,court?2.2:.9],[0,0,0],[.12,.3,.12],C.orange).add(S.cyl16,[-2.4+k*1.2,.01,court?2.2:.9],[0,0,0],[.17,.02,.17],C.orange);}
-  if(d.profil==="multisites"){const bc=[hex("#FF9F43"),hex("#1F5BD8"),hex("#2A2F38")];bc.forEach((c,k)=>g.box(-1.2-k*.15,.17,-.4+k*.42,.75,.32,.3,c).add(S.cyl8,[-1.2-k*.15,.36,-.4+k*.42],[0,0,Math.PI/2],[.03,.5,.03],C.post));
+  if(d.profil==="multisites"){const bc=[hex("#FF9F43"),hex("#1F5BD8"),hex("#2A2F38")];bc.forEach((c,k)=>g.add(S.cyl16,[-1.2-k*.15,.16,-.4+k*.42],[0,0,Math.PI/2],[.16,.72,.15],c).add(S.cyl16,[-1.2-k*.15,.16,-.4+k*.42],[0,0,Math.PI/2],[.162,.08,.152],hex("#15181C")).add(S.ring,[-1.2-k*.15,.33,-.4+k*.42],[Math.PI/2,0,0],[.12,.02,.06],hex("#15181C")));
     if(court){const cx=-3.2,cz=-3;g.box(cx,.55,cz,1.2,.5,2,C.craie).box(cx,1.0,cz+.3,1.1,.06,.9,C.post).box(cx,1.75,cz,1.25,.06,2.1,C.marine).box(cx,.9,cz-.75,1.1,.6,.06,hex("#7FB3FF",1),3);
       for(const dx of[-.55,.55])for(const dz of[-.7,.7])g.add(S.cyl16,[cx+dx,.22,cz+dz],[0,0,Math.PI/2],[.22,.14,.22],hex("#111111"));
       for(const dx of[-.55,.55])g.box(cx+dx,1.35,cz+.85,.05,.8,.05,C.post)}}
@@ -1118,7 +1186,7 @@ function render(){
   // sol
   setCommon(false);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.uniform1f(P.u.uFloor,1);drawMesh(STATIC_M.floor);gl.uniform1f(P.u.uFloor,0);gl.disable(gl.BLEND);
   // opaque
-  drawMesh(STATIC_M.cast);drawMesh(STATIC_M.nocast);STATIC_M.walls.forEach((w,i)=>wallVis[i]&&drawMesh(w));if(camPos[1]<11)drawMesh(STATIC_M.ceil);if(camPos[1]<WH-.05)drawMesh(STATIC_M.roof);
+  drawMesh(STATIC_M.cast);drawMesh(STATIC_M.nocast);STATIC_M.walls.forEach((w,i)=>wallVis[i]&&drawMesh(w));if(camPos[1]<WH-.05)drawMesh(STATIC_M.ceil);if(camPos[1]<WH-.05)drawMesh(STATIC_M.roof);
   for(const it of LISTS.op)drawMesh(it.n.mesh,it.m,{tint:it.n.tint,emis:it.n.emis,hi:it.h,tex:it.n.tex});
   // transparents
   gl.enable(gl.BLEND);gl.depthMask(false);
