@@ -47,6 +47,7 @@
     chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     star: '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>',
     flag: '<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>',
+    cube: '<path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7z"/><path d="M3.5 7 12 11.5 20.5 7M12 11.5v10"/>',
     share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/>',
   };
   const icon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
@@ -2249,6 +2250,8 @@
     return `<div class="page__head"><div><h1>${t}</h1><p>${sub}</p></div></div><div id="pcw-body"><p class="muted">Chargement…</p></div>`;
   }
   // Espace réservé à l'équipe PCW : aucune donnée de coach n'est chargée tant qu'on n'en ouvre pas un.
+  // CRM commercial 3D (prospects et clients) : page dédiée de la console, réservée aux administrateurs.
+  const CRM_URL = "https://console.pcwpadel.fr/admin/crm.html";
   function renderConsole() {
     const tab = S.ui.pcwTab || "overview";
     const d = S.pcw && S.pcw.dash;
@@ -2261,6 +2264,7 @@
       <aside class="side">
         <div class="side__brand"><span class="dot"></span><span>PCW PADEL COACH</span></div>
         <nav aria-label="Menu"><span class="nav-group">Console PCW</span>${items.map(link).join("")}
+          <a class="navlink" href="${CRM_URL}">${icon("cube")}<span>CRM commercial 3D</span></a>
           <span class="nav-group">Entrer dans le site d'un coach</span>
           <select class="coach-switch" id="open-coach" aria-label="Ouvrir le site d'un coach"><option value="">Choisir un coach…</option>${(S.coaches || []).map((c) =>
             `<option value="${c.id}">${esc(c.display_name)}</option>`).join("")}</select></nav>
@@ -2660,6 +2664,7 @@
       title: "Plus",
       body: `<div class="sheet-menu">
         <span class="sheet-menu__group">Console PCW</span>
+        <a href="${CRM_URL}">${icon("cube")} CRM commercial 3D</a>
         <button type="button" data-action="pcw-goto-push">${icon("bell")} Notifications</button>
         <a href="https://pcwpadel.fr/" target="_blank" rel="noopener">${icon("ext")} Page de vente pcwpadel.fr</a>
         <span class="sheet-menu__group">Entrer dans le site d'un coach</span>
