@@ -309,7 +309,7 @@ const STATUTS=[
   {nom:"Démo visitée",court:"Démo",col:"#4C8DFF",desc:"A visité demo.pcwpadel.fr"},
   {nom:"Rendez-vous fixé",court:"RDV",col:"#FF9F43",desc:"Présentation complète prévue"},
   {nom:"En ligne",court:"En ligne",col:"#2ED3C6",desc:"Site publié, abonnement en démarrage"},
-  {nom:"Abonné actif",court:"Abonné",col:"#C8F03C",desc:"Abonnement 79 €/mois en cours"}
+  {nom:"Abonné actif",court:"Abonné",col:"#C8F03C",desc:"Abonnement 49 €/mois en cours"}
 ];
 const CLOS_COL="#E5484D";
 const PROFILS={
@@ -354,7 +354,7 @@ function seed(){
   const H=(d,t)=>({d:addDays(d)+"T10:00:00",t});
   const mk=(id,prenom,nom,ville,pays,canal,profil,club,statut,slot,act,actJ,eng,notes,hist)=>({
     id,prenom,nom,ville,pays,canal,profil,club,statut,slot,prochaine:act,prochaineDate:actJ==null?"":addDays(actJ),
-    montant:79,engagement:eng==null?"":addDays(eng),site:slugify(prenom+"-"+nom)+".padelcoachs.fr",notes,historique:hist,clos:null});
+    montant:49,engagement:eng==null?"":addDays(eng),site:slugify(prenom+"-"+nom)+".padelcoachs.fr",notes,historique:hist,clos:null});
   const demoInv=(start,n,montant,lastIssued)=>{const out=[];for(let i=0;i<n;i++){const d0=new Date(addDays(start)+"T12:00:00");d0.setMonth(d0.getMonth()+i);const is=iso(d0),due=iso(new Date(d0.getTime()+10*864e5));
       const last=i===n-1;out.push({id:"inv-"+start+"-"+i,number:"PCW-2026-"+String(40+i).padStart(4,"0"),issued_on:is,due_on:due,total_cents:montant*100,status:last&&lastIssued?"issued":"paid",paid_on:last&&lastIssued?null:due,kind:"monthly"})}return out};
   const D=(o)=>Object.assign({status:"live",plan_status:"active",monthly_cents:7900,commitment_months:12,bookings_upcoming:6,bookings_30d:18,bookings_today:1,rating:null,rating_count:0,reviews_recent:[],reviews_reported:0,
@@ -1849,7 +1849,7 @@ function importDialog(){
         const parts=titleCase(c.display_name).trim().split(/\s+/);n++;
         const d={id:"C-"+String(n).padStart(3,"0"),coach_id:c.id,prenom:parts[0]||"Coach",nom:parts.slice(1).join(" ")||"—",ville:c.city||"",pays:"France",canal:"Autre",profil:"independant",club:"",
           statut:st,slot:free[0],prochaine:st===4?"Point d'étape":st===3?"Suivre le premier prélèvement":"Finaliser la mise en ligne",prochaineDate:addDays(7),
-          montant:c.billing&&c.billing.monthly_cents!=null?Math.round(c.billing.monthly_cents/100):79,engagement:c.billing&&c.billing.live_since||"",site:c.custom_domain||c.slug+".padelcoachs.fr",notes:"",historique:[],clos:null,_new:true};
+          montant:c.billing&&c.billing.monthly_cents!=null?Math.round(c.billing.monthly_cents/100):49,engagement:c.billing&&c.billing.live_since||"",site:c.custom_domain||c.slug+".padelcoachs.fr",notes:"",historique:[],clos:null,_new:true};
         addHist(d,"Importé depuis la plateforme · site "+(SITE_ST[c.status]||c.status)+" · "+SLOTS[d.slot].nom);DB.dossiers.push(d);done++}
       closeModal();refresh();toast(done+" coach"+(done>1?"s":"")+" importé"+(done>1?"s":"")+(skipped?" · "+skipped+" sans emplacement libre":"")+".",!!skipped)}});
 }
